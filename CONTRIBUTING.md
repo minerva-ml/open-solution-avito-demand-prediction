@@ -6,4 +6,11 @@ You can do it in two main ways:
 1. Major - and most appreciated - way is to submit [pull request](https://github.com/minerva-ml/open-solution-avito-demand-prediction/pulls) with additional feature or bug fix. Your pull request will be merged after some discussion.
 2. Submit an [issue](https://github.com/minerva-ml/open-solution-avito-demand-prediction/issues) (bug, feature request or question).
 
-Finally, in case of custom ideas, contact neptune's ml-team directly at ml-team@neptune.ml.
+### Remarks
+In case of custom ideas, please contact core contributors directly at ml-team@neptune.ml.
+
+Thanks!
+
+Kamil & Jakub,
+
+*core contributors to the [minerva.ml](https://minerva.ml)*
