@@ -1,0 +1,56 @@
+project: AV
+
+name: avito demand prediction
+tags: [solution_1]
+
+metric:
+  channel: 'RMSE'
+  goal: minimize
+
+exclude:
+  - output
+  - imgs
+  - neptune.log
+  - offline_job.log
+  - .git
+  - .idea
+  - .ipynb_checkpoints
+
+parameters:
+# Data
+  train_filepath: YOUR/PATH/TO/train.csv
+  test_filepath: YOUR/PATH/TO/test.csv
+  image_dir: YOUR/PATH/TO/IMAGES/data
+  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
+
+# Validation
+  target_bins: 100
+  validation_size: 0.2
+
+# Execution
+  overwrite: 0
+  num_workers: 10
+  verbose: 1
+
+# Preprocessing
+  target_encoder__n_splits: 10
+
+# Light GBM
+  lgbm_random_search_runs: 0
+  lgbm__boosting_type: 'gbdt'
+  lgbm__objective: 'binary'
+  lgbm__metric: 'auc'
+  lgbm__number_boosting_rounds: 10
+  lgbm__early_stopping_rounds: 2
+  lgbm__learning_rate: 0.22
+  lgbm__num_leaves: 47
+  lgbm__max_depth: 3
+  lgbm__min_child_samples: 9
+  lgbm__max_bin: 433
+  lgbm__subsample: 0.68
+  lgbm__subsample_freq: 3
+  lgbm__colsample_bytree: 0.31
+  lgbm__min_child_weight: 2
+  lgbm__reg_lambda: 0.45
+  lgbm__reg_alpha: 0
+  lgbm__scale_pos_weight: 10
