@@ -38,7 +38,7 @@ parameters:
 # Light GBM
   lgbm_random_search_runs: 0
   lgbm__boosting_type: 'gbdt'
-  lgbm__application: regression
+  lgbm__objective: regression
   lgbm__metric: RMSE
   lgbm__number_boosting_rounds: 10
   lgbm__early_stopping_rounds: 2
@@ -53,4 +53,3 @@ parameters:
   lgbm__min_child_weight: 2
   lgbm__reg_lambda: 0.45
   lgbm__reg_alpha: 0
-  lgbm__scale_pos_weight: 10

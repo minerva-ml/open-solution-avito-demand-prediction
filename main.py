@@ -35,12 +35,12 @@ def _train(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
     meta_train_split, meta_valid_split = stratified_train_valid_split(meta_train,
@@ -83,12 +83,12 @@ def _evaluate(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
     _, meta_valid_split = stratified_train_valid_split(meta_train,
@@ -132,13 +132,13 @@ def _predict(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
         meta_test = pd.read_csv(params.test_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS,
-                                 dtype=cfg.COLUMN_TYPES['inference'],
-                                 nrows=cfg.DEV_SAMPLE_SIZE)
+                                usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                dtype=cfg.COLUMN_TYPES['inference'],
+                                nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_test = pd.read_csv(params.test_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS,
-                                 dtype=cfg.COLUMN_TYPES['inference'])
+                                usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                dtype=cfg.COLUMN_TYPES['inference'])
 
     data_hash_channel_send(ctx, 'Test Data Hash', meta_test)
 
@@ -155,7 +155,7 @@ def _predict(pipeline_name, dev_mode):
 
     logger.info('creating submission test')
     submission = create_submission(meta_test, y_pred)
-    submission_filepath = os.path.join(params.experiment_dir, 'full_submission.csv')
+    submission_filepath = os.path.join(params.experiment_dir, 'submission.csv')
     submission.to_csv(submission_filepath, index=None, encoding='utf-8')
     logger.info('submission saved to {}'.format(submission_filepath))
     logger.info('submission head \n\n{}'.format(submission.head()))

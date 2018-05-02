@@ -5,6 +5,7 @@ from hyperparameter_tuning import RandomSearchOptimizer, NeptuneMonitor, SaveRes
 from steps.adapters import to_numpy_label_inputs, identity_inputs
 from steps.base import Step, Dummy
 from models import LightGBMLowMemory as LightGBM
+from postprocessing import Clipper
 from utils import root_mean_squared_error
 
 
@@ -17,10 +18,17 @@ def solution_1(config, train_mode):
         features = feature_extraction_v1(config, train_mode, cache_output=True)
         light_gbm = classifier_lgbm(features, config, train_mode)
 
+    clipper = Step(name='clipper',
+                   transformer=Clipper(**config.clipper),
+                   input_steps=[light_gbm],
+                   adapter={'prediction': ([(light_gbm.name, 'prediction')]),
+                            },
+                   cache_dirpath=config.env.cache_dirpath)
+
     output = Step(name='output',
                   transformer=Dummy(),
-                  input_steps=[light_gbm],
-                  adapter={'y_pred': ([(light_gbm.name, 'prediction')]),
+                  input_steps=[clipper],
+                  adapter={'y_pred': ([(clipper.name, 'clipped_prediction')]),
                            },
                   cache_dirpath=config.env.cache_dirpath)
     return output
