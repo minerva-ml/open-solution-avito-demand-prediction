@@ -33,14 +33,14 @@ USER_ID_COLUMN = ['user_id']
 
 DEV_SAMPLE_SIZE = int(20e4)
 
-COLUMN_TYPES = {'train': {'price': 'uint32',
+COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
-                          'image_top_1': 'uint32',
+                          'image_top_1': 'float64',
                           'deal_probability': 'float32',
                           },
-                'inference': {'price': 'uint32',
+                'inference': {'price': 'float64',
                               'item_seq_number': 'uint32',
-                              'image_top_1': 'uint32',
+                              'image_top_1': 'float64',
                               }
                 }
 
@@ -62,19 +62,19 @@ SOLUTION_CONFIG = AttrDict({
                                    },
 
     'groupby_aggregation': {'groupby_aggregations': [
-        {'groupby': ['region'], 'select': 'region', 'agg': 'count'},
-        {'groupby': ['city'], 'select': 'city', 'agg': 'count'},
-        {'groupby': ['parent_category_name'], 'select': 'parent_category_name', 'agg': 'count'},
-        {'groupby': ['category_name'], 'select': 'category_name', 'agg': 'count'},
-        {'groupby': ['image_top_1'], 'select': 'image_top_1', 'agg': 'count'},
-        {'groupby': ['user_type'], 'select': 'user_type', 'agg': 'count'}
+        {'groupby': ['region'], 'select': 'city', 'agg': 'count'},
+        {'groupby': ['city'], 'select': 'region', 'agg': 'count'},
+        {'groupby': ['parent_category_name'], 'select': 'city', 'agg': 'count'},
+        {'groupby': ['category_name'], 'select': 'city', 'agg': 'count'},
+        {'groupby': ['image_top_1'], 'select': 'city', 'agg': 'count'},
+        {'groupby': ['user_type'], 'select': 'city', 'agg': 'count'}
     ]},
 
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
                        },
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
-                  'objective': safe_eval(params.lgbm__objective),
+                  'application': safe_eval(params.lgbm__application),
                   'metric': safe_eval(params.lgbm__metric),
                   'learning_rate': safe_eval(params.lgbm__learning_rate),
                   'max_depth': safe_eval(params.lgbm__max_depth),

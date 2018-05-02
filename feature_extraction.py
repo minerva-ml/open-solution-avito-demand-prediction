@@ -142,7 +142,7 @@ class TargetEncoderNSplits(BaseTransformer):
 
                 X_test = X_test.merge(train_target_means, on=column, how='left')
             X_target_means.append(X_test)
-        X_target_means = pd.concat(X_target_means, axis=0).astype(np.float32)
+        X_target_means = pd.concat(X_target_means, axis=0)
 
         for column, target_mean_name in zip(feature_columns, self._target_means_names(feature_columns)):
             group_object = X_target_means.groupby(column)
@@ -158,11 +158,11 @@ class TargetEncoderNSplits(BaseTransformer):
                                                           self._is_null_names(columns)):
             categorical_features = categorical_features.merge(self.target_means_map[column],
                                                               on=column,
-                                                              how='left').astype(np.float32)
+                                                              how='left')
             categorical_features[is_null_name] = pd.isnull(categorical_features[target_mean_name]).astype(int)
             categorical_features[target_mean_name].fillna(0, inplace=True)
 
-        return {'numerical_features': categorical_features[self._target_means_names(columns)],
+        return {'numerical_features': categorical_features[self._target_means_names(columns)].astype(np.float32),
                 'categorical_features': categorical_features[self._is_null_names(columns)]}
 
     def load(self, filepath):
@@ -219,10 +219,10 @@ class TimeDelta(BaseTransformer):
                                                                self.time_delta_names,
                                                                self.is_null_names):
             X[time_delta_name] = X.groupby(groupby_spec)[self.timestamp_column].apply(self._time_delta).reset_index(
-                level=list(range(len(groupby_spec))), drop=True).astype(np.float32)
+                level=list(range(len(groupby_spec))), drop=True)
             X[is_null_name] = pd.isnull(X[time_delta_name]).astype(int)
             X[time_delta_name].fillna(0, inplace=True)
-        return {'numerical_features': X[self.time_delta_names],
+        return {'numerical_features': X[self.time_delta_names].astype(np.float32),
                 'categorical_features': X[self.is_null_names]}
 
     def _time_delta(self, groupby_object):
@@ -250,13 +250,12 @@ class GroupbyAggregations(BaseTransformer):
             categorical_features = categorical_features.merge(
                 group_object[spec['select']].agg(spec['agg']).reset_index().rename(index=str, columns={
                     spec['select']: groupby_aggregations_name})[spec['groupby'] + [groupby_aggregations_name]],
-                on=spec['groupby'], how='left').astype(np.float32)
+                on=spec['groupby'], how='left')
 
-        return {'numerical_features': categorical_features[self.groupby_aggregations_names]}
+        return {'numerical_features': categorical_features[self.groupby_aggregations_names].astype(np.float32)}
 
 
 class Blacklist(BaseTransformer):
-
     def __init__(self, blacklist):
         self.blacklist = blacklist
 
@@ -311,11 +310,11 @@ class ConfidenceRate(BaseTransformer):
                                                                 self.is_null_names):
             categorical_features = categorical_features.merge(self.confidence_rates_map['_'.join(category)],
                                                               on=category,
-                                                              how='left').astype(np.float32)
+                                                              how='left')
             categorical_features[is_null_name] = pd.isnull(categorical_features[confidence_rate_name]).astype(int)
             categorical_features[confidence_rate_name].fillna(0, inplace=True)
 
-        return {'numerical_features': categorical_features[self.confidence_rate_names],
+        return {'numerical_features': categorical_features[self.confidence_rate_names].astype(np.float32),
                 'categorical_features': categorical_features[self.is_null_names]}
 
     def load(self, filepath):

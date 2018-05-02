@@ -37,7 +37,7 @@ def _train(pipeline_name, dev_mode):
         meta_train = pd.read_csv(params.train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
                                  dtype=cfg.COLUMN_TYPES['train'],
-                                 n_rows=cfg.DEV_SAMPLE_SIZE)
+                                 nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(params.train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
@@ -85,7 +85,7 @@ def _evaluate(pipeline_name, dev_mode):
         meta_train = pd.read_csv(params.train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
                                  dtype=cfg.COLUMN_TYPES['train'],
-                                 n_rows=cfg.DEV_SAMPLE_SIZE)
+                                 nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(params.train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS,
@@ -134,7 +134,7 @@ def _predict(pipeline_name, dev_mode):
         meta_test = pd.read_csv(params.test_filepath,
                                  usecols=cfg.FEATURE_COLUMNS,
                                  dtype=cfg.COLUMN_TYPES['inference'],
-                                 n_rows=cfg.DEV_SAMPLE_SIZE)
+                                 nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_test = pd.read_csv(params.test_filepath,
                                  usecols=cfg.FEATURE_COLUMNS,
