@@ -6,7 +6,7 @@ from steps.adapters import to_numpy_label_inputs, identity_inputs
 from steps.base import Step, Dummy
 from models import LightGBMLowMemory as LightGBM
 from postprocessing import Clipper
-from utils import root_mean_squared_error
+from utils import root_mean_squared_error, pandas_concat_inputs
 
 
 def solution_1(config, train_mode):
@@ -38,15 +38,21 @@ def feature_extraction_v1(config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = _feature_by_type_splits(config, train_mode)
 
+        price_features, price_features_valid = _price_features(
+            (feature_by_type_split, feature_by_type_split_valid),
+            config, train_mode, **kwargs)
+
         groupby_aggregation, groupby_aggregation_valid = _groupby_aggregations(
             (feature_by_type_split, feature_by_type_split_valid),
             config, train_mode, **kwargs)
         target_encoder, target_encoder_valid = _target_encoders((feature_by_type_split, feature_by_type_split_valid),
                                                                 config, train_mode, **kwargs)
 
-        feature_combiner, feature_combiner_valid = _join_features(numerical_features=[target_encoder,
+        feature_combiner, feature_combiner_valid = _join_features(numerical_features=[price_features,
+                                                                                      target_encoder,
                                                                                       groupby_aggregation],
-                                                                  numerical_features_valid=[target_encoder_valid,
+                                                                  numerical_features_valid=[price_features_valid,
+                                                                                            target_encoder_valid,
                                                                                             groupby_aggregation_valid],
                                                                   categorical_features=[target_encoder],
                                                                   categorical_features_valid=[target_encoder_valid],
@@ -55,10 +61,11 @@ def feature_extraction_v1(config, train_mode, **kwargs):
     else:
         feature_by_type_split = _feature_by_type_splits(config, train_mode)
 
+        price_aggregation = _price_features(feature_by_type_split, config, train_mode, **kwargs)
         groupby_aggregation = _groupby_aggregations(feature_by_type_split, config, train_mode, **kwargs)
         target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[target_encoder, groupby_aggregation],
+        feature_combiner = _join_features(numerical_features=[price_aggregation, target_encoder, groupby_aggregation],
                                           numerical_features_valid=[],
                                           categorical_features=[target_encoder],
                                           categorical_features_valid=[],
@@ -138,6 +145,43 @@ def _feature_by_type_splits(config, train_mode):
         return feature_by_type_split
 
 
+def _price_features(dispatchers, config, train_mode, **kwargs):
+    if train_mode:
+        feature_by_type_split, feature_by_type_split_valid = dispatchers
+        price_features = Step(name='price_features',
+                              transformer=Dummy(),
+                              input_steps=[feature_by_type_split],
+                              adapter={
+                                  'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
+                              },
+                              cache_dirpath=config.env.cache_dirpath,
+                              **kwargs)
+
+        price_features_valid = Step(name='price_features_valid',
+                                    transformer=price_features,
+                                    input_steps=[feature_by_type_split_valid],
+                                    adapter={'numerical_features': (
+                                        [(feature_by_type_split_valid.name, 'numerical_features')])
+                                    },
+                                    cache_dirpath=config.env.cache_dirpath,
+                                    **kwargs)
+
+        return price_features, price_features_valid
+
+    else:
+        feature_by_type_split = dispatchers
+        price_features = Step(name='price_features',
+                              transformer=Dummy(),
+                              input_steps=[feature_by_type_split],
+                              adapter={
+                                  'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
+                              },
+                              cache_dirpath=config.env.cache_dirpath,
+                              **kwargs)
+
+        return price_features
+
+
 def _target_encoders(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
@@ -186,20 +230,23 @@ def _groupby_aggregations(dispatchers, config, train_mode, **kwargs):
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_data=['input'],
                                     input_steps=[feature_by_type_split],
                                     adapter={
-                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
+                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
+                                                                  (feature_by_type_split.name, 'numerical_features')],
+                                                                 pandas_concat_inputs)
                                     },
                                     cache_dirpath=config.env.cache_dirpath,
                                     **kwargs)
 
         groupby_aggregations_valid = Step(name='groupby_aggregations_valid',
                                           transformer=groupby_aggregations,
-                                          input_data=['input'],
                                           input_steps=[feature_by_type_split_valid],
                                           adapter={'categorical_features': (
-                                              [(feature_by_type_split_valid.name, 'categorical_features')])
+                                              [(feature_by_type_split_valid.name, 'categorical_features'),
+                                               (feature_by_type_split_valid.name, 'numerical_features')],
+                                              pandas_concat_inputs
+                                          )
                                           },
                                           cache_dirpath=config.env.cache_dirpath,
                                           **kwargs)
@@ -210,10 +257,11 @@ def _groupby_aggregations(dispatchers, config, train_mode, **kwargs):
         feature_by_type_split = dispatchers
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_data=['input'],
                                     input_steps=[feature_by_type_split],
                                     adapter={
-                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
+                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
+                                                                  (feature_by_type_split.name, 'numerical_features')],
+                                                                 pandas_concat_inputs)
                                     },
                                     cache_dirpath=config.env.cache_dirpath,
                                     **kwargs)

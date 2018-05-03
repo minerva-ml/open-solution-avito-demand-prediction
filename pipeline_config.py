@@ -8,7 +8,8 @@ from utils import read_params, safe_eval
 ctx = neptune.Context()
 params = read_params(ctx)
 
-FEATURE_COLUMNS = ['region', 'city',
+FEATURE_COLUMNS = ['user_id',
+                   'region', 'city',
                    'parent_category_name', 'category_name',
                    'param_1', 'param_2', 'param_3',
                    'title', 'description',
@@ -18,7 +19,8 @@ FEATURE_COLUMNS = ['region', 'city',
                    'user_type',
                    'image',
                    'image_top_1']
-CATEGORICAL_COLUMNS = ['region', 'city',
+CATEGORICAL_COLUMNS = ['user_id',
+                       'region', 'city',
                        'parent_category_name', 'category_name',
                        'param_1', 'param_2', 'param_3',
                        'item_seq_number', 'user_type', 'image_top_1']
@@ -62,12 +64,13 @@ SOLUTION_CONFIG = AttrDict({
                                    },
 
     'groupby_aggregation': {'groupby_aggregations': [
-        {'groupby': ['region'], 'select': 'city', 'agg': 'count'},
-        {'groupby': ['city'], 'select': 'region', 'agg': 'count'},
-        {'groupby': ['parent_category_name'], 'select': 'city', 'agg': 'count'},
-        {'groupby': ['category_name'], 'select': 'city', 'agg': 'count'},
-        {'groupby': ['image_top_1'], 'select': 'city', 'agg': 'count'},
-        {'groupby': ['user_type'], 'select': 'city', 'agg': 'count'}
+        {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
+        {'groupby': ['user_id'], 'select': 'price', 'agg': 'var'},
+        {'groupby': ['user_id'], 'select': 'parent_category_name', 'agg': 'nunique'},
+        {'groupby': ['parent_category_name'], 'select': 'price', 'agg': 'mean'},
+        {'groupby': ['parent_category_name'], 'select': 'price', 'agg': 'var'},
+        {'groupby': ['parent_category_name', 'category_name'], 'select': 'price', 'agg': 'mean'},
+        {'groupby': ['parent_category_name', 'category_name'], 'select': 'price', 'agg': 'var'},
     ]},
 
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),

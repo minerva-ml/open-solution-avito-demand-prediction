@@ -109,3 +109,7 @@ def safe_eval(obj):
 
 def root_mean_squared_error(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
+
+
+def pandas_concat_inputs(inputs, axis=1):
+    return pd.concat(inputs, axis=axis)
