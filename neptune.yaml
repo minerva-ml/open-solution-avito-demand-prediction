@@ -40,16 +40,16 @@ parameters:
   lgbm__boosting_type: 'gbdt'
   lgbm__objective: regression
   lgbm__metric: RMSE
-  lgbm__number_boosting_rounds: 10
-  lgbm__early_stopping_rounds: 2
-  lgbm__learning_rate: 0.22
-  lgbm__num_leaves: 47
-  lgbm__max_depth: 3
-  lgbm__min_child_samples: 9
-  lgbm__max_bin: 433
-  lgbm__subsample: 0.68
-  lgbm__subsample_freq: 3
-  lgbm__colsample_bytree: 0.31
-  lgbm__min_child_weight: 2
-  lgbm__reg_lambda: 0.45
-  lgbm__reg_alpha: 0
+  lgbm__number_boosting_rounds: 300
+  lgbm__early_stopping_rounds: 30
+  lgbm__learning_rate: 0.05
+  lgbm__num_leaves: 77
+  lgbm__max_depth: 11
+  lgbm__min_child_samples: 44
+  lgbm__max_bin: 379
+  lgbm__subsample: 0.82
+  lgbm__subsample_freq: 2
+  lgbm__colsample_bytree: 0.27
+  lgbm__min_child_weight: 4
+  lgbm__reg_lambda: 0.0
+  lgbm__reg_alpha: 0.1

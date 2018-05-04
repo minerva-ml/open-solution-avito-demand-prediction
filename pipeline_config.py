@@ -71,6 +71,8 @@ SOLUTION_CONFIG = AttrDict({
         {'groupby': ['parent_category_name'], 'select': 'price', 'agg': 'var'},
         {'groupby': ['parent_category_name', 'category_name'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['parent_category_name', 'category_name'], 'select': 'price', 'agg': 'var'},
+        {'groupby': ['region'], 'select': 'parent_category_name', 'agg': 'count'},
+        {'groupby': ['city'], 'select': 'parent_category_name', 'agg': 'count'},
     ]},
 
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),

@@ -11,11 +11,11 @@ from utils import root_mean_squared_error, pandas_concat_inputs
 
 def solution_1(config, train_mode):
     if train_mode:
-        features, features_valid = feature_extraction_v1(config, train_mode,
-                                                         save_output=True, cache_output=True, load_saved_output=True)
+        features, features_valid = feature_extraction(config, train_mode,
+                                                      save_output=True, cache_output=True, load_saved_output=True)
         light_gbm = classifier_lgbm((features, features_valid), config, train_mode)
     else:
-        features = feature_extraction_v1(config, train_mode, cache_output=True)
+        features = feature_extraction(config, train_mode, cache_output=True)
         light_gbm = classifier_lgbm(features, config, train_mode)
 
     clipper = Step(name='clipper',
@@ -34,19 +34,14 @@ def solution_1(config, train_mode):
     return output
 
 
-def feature_extraction_v1(config, train_mode, **kwargs):
+def feature_extraction(config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = _feature_by_type_splits(config, train_mode)
 
-        price_features, price_features_valid = _price_features(
-            (feature_by_type_split, feature_by_type_split_valid),
-            config, train_mode, **kwargs)
-
-        groupby_aggregation, groupby_aggregation_valid = _groupby_aggregations(
-            (feature_by_type_split, feature_by_type_split_valid),
-            config, train_mode, **kwargs)
-        target_encoder, target_encoder_valid = _target_encoders((feature_by_type_split, feature_by_type_split_valid),
-                                                                config, train_mode, **kwargs)
+        dataframe_features_train, dataframe_features_valid = dataframe_features(
+            (feature_by_type_split, feature_by_type_split_valid), config, train_mode, **kwargs)
+        price_features, groupby_aggregation, target_encoder = dataframe_features_train
+        price_features_valid, groupby_aggregation_valid, target_encoder_valid = dataframe_features_valid
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[price_features,
                                                                                       target_encoder,
@@ -61,16 +56,40 @@ def feature_extraction_v1(config, train_mode, **kwargs):
     else:
         feature_by_type_split = _feature_by_type_splits(config, train_mode)
 
-        price_aggregation = _price_features(feature_by_type_split, config, train_mode, **kwargs)
-        groupby_aggregation = _groupby_aggregations(feature_by_type_split, config, train_mode, **kwargs)
-        target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
+        price_features, groupby_aggregation, target_encoder = dataframe_features(feature_by_type_split, config,
+                                                                                 train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[price_aggregation, target_encoder, groupby_aggregation],
+        feature_combiner = _join_features(numerical_features=[price_features, target_encoder, groupby_aggregation],
                                           numerical_features_valid=[],
                                           categorical_features=[target_encoder],
                                           categorical_features_valid=[],
                                           config=config, train_mode=train_mode)
         return feature_combiner
+
+
+def dataframe_features(dispatchers, config, train_mode, **kwargs):
+    if train_mode:
+        feature_by_type_split, feature_by_type_split_valid = dispatchers
+
+        price_features, price_features_valid = _price_features(
+            (feature_by_type_split, feature_by_type_split_valid),
+            config, train_mode, **kwargs)
+
+        groupby_aggregation, groupby_aggregation_valid = _groupby_aggregations(
+            (feature_by_type_split, feature_by_type_split_valid),
+            config, train_mode, **kwargs)
+        target_encoder, target_encoder_valid = _target_encoders((feature_by_type_split, feature_by_type_split_valid),
+                                                                config, train_mode, **kwargs)
+        return (price_features, groupby_aggregation, target_encoder), (
+            price_features_valid, groupby_aggregation_valid, target_encoder_valid)
+    else:
+        feature_by_type_split = dispatchers
+
+        price_features = _price_features(feature_by_type_split, config, train_mode, **kwargs)
+        groupby_aggregation = _groupby_aggregations(feature_by_type_split, config, train_mode, **kwargs)
+        target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
+
+        return price_features, groupby_aggregation, target_encoder
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):
