@@ -60,7 +60,10 @@ def create_submission(meta, predictions):
 
 def read_params(ctx):
     if ctx.params.__class__.__name__ == 'OfflineContextParams':
-        neptune_config = read_yaml('neptune.yaml')
+        try:
+            neptune_config = read_yaml('neptune.yaml')
+        except FileNotFoundError:
+            neptune_config = read_yaml('../neptune.yaml')
         params = neptune_config.parameters
     else:
         params = ctx.params

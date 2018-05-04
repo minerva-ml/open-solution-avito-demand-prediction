@@ -12,6 +12,7 @@ class LightGBM(BaseTransformer):
     def __init__(self, **params):
         self.params = params
         self.training_params = ['number_boosting_rounds', 'early_stopping_rounds']
+        self.evaluation_results = {}
         self.evaluation_function = None
 
     @property
@@ -28,12 +29,11 @@ class LightGBM(BaseTransformer):
         train = lgb.Dataset(X, label=y)
         valid = lgb.Dataset(X_valid, label=y_valid)
 
-        evaluation_results = {}
         self.estimator = lgb.train(self.model_config,
                                    train, valid_sets=[train, valid], valid_names=['train', 'valid'],
                                    feature_name=feature_names,
                                    categorical_feature=categorical_features,
-                                   evals_result=evaluation_results,
+                                   evals_result=self.evaluation_results,
                                    num_boost_round=self.training_config.number_boosting_rounds,
                                    early_stopping_rounds=self.training_config.early_stopping_rounds,
                                    verbose_eval=self.model_config.verbose,
@@ -45,8 +45,12 @@ class LightGBM(BaseTransformer):
         return {'prediction': prediction}
 
     def load(self, filepath):
-        self.estimator = joblib.load(filepath)
+        load_objects = joblib.load(filepath)
+        self.estimator = load_objects['estimator']
+        self.evals_result = load_objects['evals_result']
         return self
 
     def save(self, filepath):
-        joblib.dump(self.estimator, filepath)
+        save_objects = {'estimator': self.estimator,
+                        'evals_result': self.evaluation_results}
+        joblib.dump(save_objects, filepath)

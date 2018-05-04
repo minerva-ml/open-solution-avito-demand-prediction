@@ -15,10 +15,11 @@ class LightGBMLowMemory(LightGBM):
         train = lgb.Dataset(X, label=y)
         valid = lgb.Dataset(X_valid, label=y_valid)
 
-        evaluation_results = {}
+        self.evaluation_results = {}
         self.estimator = lgb.train(self.model_config,
                                    train, valid_sets=[train, valid], valid_names=['train', 'valid'],
-                                   evals_result=evaluation_results,
+                                   feature_name=feature_names,
+                                   evals_result=self.evaluation_results,
                                    num_boost_round=self.training_config.number_boosting_rounds,
                                    early_stopping_rounds=self.training_config.early_stopping_rounds,
                                    verbose_eval=self.model_config.verbose,
