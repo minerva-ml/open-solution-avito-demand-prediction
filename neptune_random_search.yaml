@@ -1,0 +1,55 @@
+project: AV
+
+name: avito demand prediction
+tags: [solution_1]
+
+metric:
+  channel: 'RMSE'
+  goal: minimize
+
+exclude:
+  - output
+  - imgs
+  - neptune.log
+  - offline_job.log
+  - .git
+  - .idea
+  - .ipynb_checkpoints
+
+parameters:
+# Data
+  train_filepath: YOUR/PATH/TO/train.csv
+  test_filepath: YOUR/PATH/TO/test.csv
+  image_dir: YOUR/PATH/TO/IMAGES/data
+  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
+
+# Validation
+  target_bins: 100
+  validation_size: 0.2
+
+# Execution
+  overwrite: 0
+  num_workers: 10
+  verbose: 1
+
+# Preprocessing
+  target_encoder__n_splits: 10
+
+# Light GBM
+  lgbm_random_search_runs: 100
+  lgbm__boosting_type: gbdt
+  lgbm__objective: regression
+  lgbm__metric: RMSE
+  lgbm__number_boosting_rounds: 100
+  lgbm__early_stopping_rounds: 10
+  lgbm__learning_rate: '[0.01, 1.0, "log-uniform"]'
+  lgbm__num_leaves: '[1, 100]'
+  lgbm__max_depth: '[0, 15]'
+  lgbm__min_child_samples: '[0, 50]'
+  lgbm__max_bin: '[100, 500]'
+  lgbm__subsample: '[0.6, 1.0, "uniform"]'
+  lgbm__subsample_freq: '[0, 10]'
+  lgbm__colsample_bytree: '[0.1, 1.0, "uniform"]'
+  lgbm__min_child_weight: '[0, 10]'
+  lgbm__reg_lambda: 0
+  lgbm__reg_alpha: '[1e-9, 1.0, "log-uniform"]'
