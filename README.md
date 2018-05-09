@@ -8,7 +8,7 @@ Create (entirely) open solution to this competition. We are opening not only the
 * This solution should - by itself - establish solid benchmark, as well as provide good base for your custom ideas and experiments.
 
 ## Installation
-1. clone this repository: `git clone https://github.com/neptune-ml/open-solution-avito-demand-prediction.git`
+1. clone this repository: `git clone https://github.com/minerva-ml/open-solution-avito-demand-prediction.git`
 2. install requirements
 3. register to [Neptune](https://neptune.ml/ 'machine learning lab') *(if you wish to use it)*
 4. update `neptune.yaml` configuration file with your data filepaths
