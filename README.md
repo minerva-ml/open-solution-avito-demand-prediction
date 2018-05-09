@@ -22,7 +22,7 @@ collect submit from `/output/solution-1` directory.
 
 * with pure python:
 ```bash
-$ python main.py train_evaluate_predict --pipeline_name solution_1
+$ python main.py -- train_evaluate_predict --pipeline_name solution_1
 ```
 
 collect submit from `experiment_dir` directory that was specified in `neptune.yaml`
