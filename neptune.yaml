@@ -18,10 +18,10 @@ exclude:
 
 parameters:
 # Data
-  train_filepath: /mnt/ml-team/minerva/avito/data/train.csv
-  test_filepath: /mnt/ml-team/minerva/avito/data/test.csv
-  image_dir: /mnt/ml-team/minerva/avito/data/data
-  experiment_dir: /mnt/ml-team/minerva/avito/kuba/experiments/solution_1
+  train_filepath: YOUR/PATH/TO/train.csv
+  test_filepath: YOUR/PATH/TO/test.csv
+  image_dir: YOUR/PATH/TO/IMAGES/data
+  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
 
 # Validation
   target_bins: 100
