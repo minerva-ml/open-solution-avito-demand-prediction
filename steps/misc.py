@@ -41,16 +41,18 @@ class LightGBM(BaseTransformer):
         return self
 
     def transform(self, X, y=None, **kwargs):
-        prediction = self.estimator.predict(X)
+        prediction = self.estimator.predict(X, num_iteration=self.estimator.best_iteration)
         return {'prediction': prediction}
 
     def load(self, filepath):
-        load_objects = joblib.load(filepath)
-        self.estimator = load_objects['estimator']
-        self.evals_result = load_objects['evals_result']
+#         load_objects = joblib.load(filepath)
+#         self.estimator = load_objects['estimator']
+#         self.evals_result = load_objects['evals_result']
+        self.estimator = lgb.Booster(filepath)
         return self
 
     def save(self, filepath):
-        save_objects = {'estimator': self.estimator,
-                        'evals_result': self.evaluation_results}
-        joblib.dump(save_objects, filepath)
+#         save_objects = {'estimator': self.estimator,
+#                         'evals_result': self.evaluation_results}
+#         joblib.dump(save_objects, filepath)
+        self.estimator.save_model(filepath, num_iteration=self.estimator.best_iteration)# =  load_objects['estimator']
