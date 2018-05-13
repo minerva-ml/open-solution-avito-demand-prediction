@@ -1,10 +1,11 @@
 from functools import partial
 
-import feature_extraction as fe
-from hyperparameter_tuning import RandomSearchOptimizer, NeptuneMonitor, SaveResults
 from steps.adapters import to_numpy_label_inputs, identity_inputs
 from steps.base import Step, Dummy
-from models import LightGBMLowMemory as LightGBM
+import feature_extraction as fe
+from hyperparameter_tuning import RandomSearchOptimizer, NeptuneMonitor, SaveResults
+from models import HierarchicalInception, LightGBMLowMemory as LightGBM
+from loaders import MultiOutputImageLoader
 from postprocessing import Clipper
 from utils import root_mean_squared_error, pandas_concat_inputs
 
@@ -32,6 +33,51 @@ def solution_1(config, train_mode):
                            },
                   cache_dirpath=config.env.cache_dirpath)
     return output
+
+
+def image_features(config, train_mode):
+    """ Pipeline predicting the 'parent_category_name, category_name' based on images
+    """
+    if train_mode:
+        non_nan_subset = Step(name='non_nan_subset',
+                              transformer=fe.SubsetNotNan(**config.subset_not_nan_image),
+                              input_data=['input'],
+                              cache_dirpath=config.env.cache_dirpath)
+
+        non_nan_subset_valid = Step(name='non_nan_subset_valid',
+                                    transformer=non_nan_subset,
+                                    input_data=['input'],
+                                    cache_dirpath=config.env.cache_dirpath)
+
+        label_encoder = Step(name='label_encoder',
+                             transformer=fe.LabelEncoder(**config.label_encoder_image),
+                             input_steps=[non_nan_subset],
+                             cache_dirpath=config.env.cache_dirpath)
+
+        label_encoder_valid = Step(name='label_encoder_valid',
+                                   transformer=label_encoder,
+                                   input_steps=[non_nan_subset_valid],
+                                   cache_dirpath=config.env.cache_dirpath)
+
+        loader = Step(name='loader',
+                      transformer=MultiOutputImageLoader(**config.loader),
+                      input_steps=[non_nan_subset, label_encoder,
+                                   non_nan_subset_valid, label_encoder_valid],
+                      adapter={'X': ([(non_nan_subset.name, 'X')]),
+                               'y': ([(label_encoder.name, 'y')]),
+                               'X_valid': ([(non_nan_subset_valid.name, 'X')]),
+                               'y_valid': ([(label_encoder_valid.name, 'y')]),
+                               },
+                      cache_dirpath=config.env.cache_dirpath)
+
+        inception = Step(name='inception',
+                         transformer=HierarchicalInception(),
+                         input_steps=[loader],
+                         cache_dirpath=config.env.cache_dirpath)
+
+        return loader
+    else:
+        raise NotImplementedError
 
 
 def feature_extraction(config, train_mode, **kwargs):
@@ -339,4 +385,6 @@ def _join_features(numerical_features, numerical_features_valid,
 
 PIPELINES = {'solution_1': {'train': partial(solution_1, train_mode=True),
                             'inference': partial(solution_1, train_mode=False)},
+             'image_features': {'train': partial(image_features, train_mode=True),
+                                'inference': partial(image_features, train_mode=False)},
              }

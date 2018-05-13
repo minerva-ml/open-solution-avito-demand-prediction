@@ -60,9 +60,9 @@ def _train(pipeline_name, dev_mode):
     meta_valid_split = meta_valid_split.sample(frac=1)
 
     data = {'input': {'X': meta_train_split[cfg.FEATURE_COLUMNS],
-                      'y': meta_train_split[cfg.TARGET_COLUMNS],
+                      'y': meta_train_split[cfg.IMAGE_TARGET_COLUMNS],
                       'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
-                      'y_valid': meta_valid_split[cfg.TARGET_COLUMNS],
+                      'y_valid': meta_valid_split[cfg.IMAGE_TARGET_COLUMNS],
                       },
             }
 

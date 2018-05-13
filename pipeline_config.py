@@ -28,6 +28,7 @@ NUMERICAL_COLUMNS = ['price']
 TEXT_COLUMNS = ['title', 'description']
 IMAGE_COLUMNS = ['image']
 TARGET_COLUMNS = ['deal_probability']
+IMAGE_TARGET_COLUMNS = ['parent_category_name', 'category_name', ]
 CV_COLUMN = ['user_id']
 TIMESTAMP_COLUMNS = ['activation_date']
 ITEM_ID_COLUMN = ['item_id']
@@ -62,6 +63,8 @@ SOLUTION_CONFIG = AttrDict({
                                    'categorical_columns': CATEGORICAL_COLUMNS,
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
+    'subset_not_nan_image': {'nan_column': IMAGE_COLUMNS},
+    'label_encoder_image': {'columns_to_encode': IMAGE_TARGET_COLUMNS},
 
     'groupby_aggregation': {'groupby_aggregations': [
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
@@ -77,6 +80,18 @@ SOLUTION_CONFIG = AttrDict({
 
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
                        },
+
+    'loader': {'training': {'batch_size': params.batch_size_train,
+                            'shuffle': True,
+                            'num_classes': safe_eval(params.num_classes),
+                            'target_size': safe_eval(params.target_size)
+                            },
+               'inference': {'batch_size': params.batch_size_inference,
+                             'shuffle': False,
+                             'num_classes': safe_eval(params.num_classes),
+                             'target_size': safe_eval(params.target_size)
+                             },
+               },
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),

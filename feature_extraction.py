@@ -1,8 +1,9 @@
 import category_encoders as ce
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold
 from sklearn.externals import joblib
+from sklearn.model_selection import KFold
+from sklearn import preprocessing as prep
 
 from steps.base import BaseTransformer
 from steps.utils import get_logger
@@ -29,6 +30,48 @@ class DataFrameByTypeSplitter(BaseTransformer):
             outputs['timestamp_features'] = X[self.timestamp_columns]
 
         return outputs
+
+
+class SubsetNotNan(BaseTransformer):
+    def __init__(self, nan_column):
+        self.nan_column = nan_column
+
+    def transform(self, X, y=None, **kwargs):
+        if y is not None:
+            Xy = pd.concat([X, y], axis=1)
+            Xy_subset = Xy[~pd.isnull(Xy[self.nan_column])]
+            return {'X': Xy_subset[X.columns],
+                    'y': Xy_subset[y.columns]}
+        else:
+            X_subset = X[~pd.isnull(X[self.nan_column])]
+            return {'X': X_subset[X.columns]
+                    }
+
+
+class LabelEncoder(BaseTransformer):
+    def __init__(self, columns_to_encode):
+        self.columns_to_encode = columns_to_encode
+        self.columns_with_encoders = [(col_name, prep.LabelEncoder())
+                                      for col_name in columns_to_encode]
+
+    def fit(self, y, **kwargs):
+        for column_name, encoder in self.columns_with_encoders:
+            encoder.fit(y[column_name])
+        return self
+
+    def transform(self, y, **kwargs):
+        y_ = y.copy()
+        for column_name, encoder in self.columns_with_encoders:
+            y_[column_name] = encoder.transform(y[column_name])
+        print(y_)
+        return {'y': y_}
+
+    def load(self, filepath):
+        self.columns_with_encoders = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.columns_with_encoders, filepath)
 
 
 class FeatureJoiner(BaseTransformer):
