@@ -1,3 +1,6 @@
+import re
+import string
+
 import category_encoders as ce
 import numpy as np
 import pandas as pd
@@ -46,7 +49,12 @@ class FeatureJoiner(BaseTransformer):
     def _get_feature_names(self, dataframes):
         feature_names = []
         for dataframe in dataframes:
-            feature_names.extend(list(dataframe.columns))
+            try:
+                feature_names.extend(list(dataframe.columns))
+            except Exception as e:
+                print(e)
+                feature_names.append(dataframe.name)
+
         return feature_names
 
 
@@ -194,6 +202,63 @@ class BinaryEncoder(BaseTransformer):
 
     def save(self, filepath):
         joblib.dump(self.target_encoder, filepath)
+
+
+class TextCounter(BaseTransformer):
+
+    def __init__(self, text_column=['description']):
+        self.text_column = text_column
+
+    def transform(self, X):
+        for text_column in self.text_column:
+            X = pd.DataFrame(X, columns=[text_column]).astype(str)
+            X = X[text_column].apply(self._transform)
+            X['caps_vs_length'] = X.apply(lambda row: float(row['upper_case_count']) / float(row['char_count']), axis=1)
+            X['num_symbols'] = X[text_column].apply(lambda comment: sum(comment.count(w) for w in '*&$%'))
+            X['num_words'] = X[text_column].apply(lambda comment: len(comment.split()))
+            X['num_unique_words'] = X[text_column].apply(lambda comment: len(set(w for w in comment.split())))
+            X['words_vs_unique'] = X['num_unique_words'] / X['num_words']
+            X['mean_word_len'] = X[text_column].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
+            X.drop(text_column, axis=1, inplace=True)
+            X.fillna(0.0, inplace=True)
+        return {'numerical_features': X}
+
+    def _transform(self, x):
+        features = {}
+        features['description'] = x
+        features['char_count'] = len(x)
+        features['word_count'] = len(x.split())
+        features['punctuation_count'] = sum([1 for i in x if i in string.punctuation])
+        features['upper_case_count'] = sum(c.isupper() for c in x)
+        features['lower_case_count'] = sum(c.islower() for c in x)
+        features['digit_count'] = sum(c.isdigit() for c in x)
+        features['space_count'] = sum(c.isspace() for c in x)
+        features['newline_count'] = x.count('\n')
+        return pd.Series(features)
+
+
+class TextCleaner(BaseTransformer):
+    def __init__(self, drop_punctuation=1, all_lower_case=1):
+        self.drop_punctuation = drop_punctuation
+        self.all_lower_case = all_lower_case
+
+    def transform(self, X):
+        X = pd.DataFrame(X, columns=['description']).astype(str)
+        X['text'] = X['description'].apply(self._transform)
+        return {'categorical_features': X['text']}
+
+    def _transform(self, x):
+        if self.all_lower_case:
+            x = self._lower(x)
+        if self.drop_punctuation:
+            x = self._remove_punctuation(x)
+        return x
+
+    def _lower(self, x):
+        return x.lower()
+
+    def _remove_punctuation(self, x):
+        return re.sub(r'[^\w\s]', ' ', x)
 
 
 class TimeDelta(BaseTransformer):
