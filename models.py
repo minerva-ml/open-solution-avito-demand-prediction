@@ -1,7 +1,16 @@
 import numpy as np
+from keras.applications.inception_resnet_v2 import InceptionResNetV2
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.models import Model
+from keras.layers import GlobalAveragePooling2D, Dense, Dropout
+from keras.optimizers import Adam
 import lightgbm as lgb
 
 from steps.misc import LightGBM
+from steps.keras.models import ClassifierGenerator
+from steps.keras.callbacks import NeptuneMonitor, ReduceLR
+from steps.utils import create_filepath
+from callbacks import NeptuneMonitorMultiOutput
 
 
 class LightGBMLowMemory(LightGBM):
@@ -28,9 +37,15 @@ class LightGBMLowMemory(LightGBM):
         return self
 
 
-class HierarchicalInception:  # (BasicKerasClassifier):
-    def _architecture(self, input_size, classes, trainable_threshold, loss_weights, **kwargs):
-        base_model = self._load_pretrained_model(input_size)
+class HierarchicalInceptionResnet(ClassifierGenerator):
+    def _build_loss(self, **kwargs):
+        return 'categorical_crossentropy'
+
+    def _build_optimizer(self, lr, **kwargs):
+        return Adam(lr=lr)
+
+    def _build_model(self, target_size, num_classes, trainable_threshold, **kwargs):
+        base_model = self._load_pretrained_model(target_size)
 
         for i, layer in enumerate(base_model.layers):
 
@@ -43,64 +58,30 @@ class HierarchicalInception:  # (BasicKerasClassifier):
         x = GlobalAveragePooling2D()(x)
         x = Dropout(0.5)(x)
 
-        level1_classes, level2_classes = classes
+        level1_classes, level2_classes = num_classes
         predictions_level1 = Dense(level1_classes, activation='softmax', name='output_level1')(x)
         predictions_level2 = Dense(level2_classes, activation='softmax', name='output_level2')(x)
 
-        model = Model(inputs=base_model.input,
-                      outputs=[predictions_level1, predictions_level2])
+        model = Model(inputs=base_model.input, outputs=[predictions_level1, predictions_level2])
         return model
 
-    def _optimizer(self, lr, momentum, **kwargs):
-        return SGD(lr=lr, momentum=momentum, nesterov=True) if momentum else Adam(lr=lr)
+    def _compile_model(self, **architecture_config):
+        model = self._build_model(**architecture_config)
+        optimizer = self._build_optimizer(**architecture_config)
+        loss = self._build_loss()
+        model.compile(optimizer=optimizer, loss=loss,
+                      loss_weights=architecture_config['loss_weights'],
+                      metrics=['categorical_accuracy'])
+        return model
 
-    def _compile_model(self, loss_weights, **kwargs):
-        if self.gpu_nr > 1:
-            self.model = multi_gpu_model(self.model_template, gpus=self.gpu_nr)
-        else:
-            self.model = self.model_template
-        optimizer = self._optimizer(**kwargs)
-        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['acc'],
-                           loss_weights=loss_weights)
+    def _load_pretrained_model(self, target_size, **kwargs):
+        return InceptionResNetV2(include_top=False, weights='imagenet', input_shape=(target_size + (3,)))
 
-    def _load_pretrained_model(self, input_size, **kwargs):
-        return InceptionV3(include_top=False, weights='imagenet', input_shape=(input_size, input_size, 3))
-
-    def _create_callbacks(self, model_dirpath, patience, lr_reduction):
-        model_filepath = self._create_model_filepath(model_dirpath)
-        if self.gpu_nr > 1:
-            model_checkpoint = ModelCheckpointMultiGPU(model_template=self.model_template,
-                                                       filepath=model_filepath, save_best_only=True,
-                                                       save_weights_only=True)
-        else:
-            model_checkpoint = ModelCheckpoint(filepath=model_filepath, save_best_only=True, save_weights_only=True)
-
-        lr_schedule = ReduceLR(lr_reduction)
-        # lr_schedule = ReduceLRBatch(lr_reduction, 2000)
-
-        _, model_name = filepath_split(model_dirpath, last_is_dir=True)
-        neptune = NeptuneHierarchicalMonitor(model_name)
-        early_stopping = EarlyStopping(patience=patience)
-
-        return [lr_schedule, model_checkpoint, early_stopping, neptune]
-
-    def predict(self, X, **kwargs):
-        test_flow, test_steps = X['X']
-
-        hierarchical_predictions_sparse = [[], [], []]
-        for cnt_steps, images in enumerate(test_flow):
-            print_progress_bar(cnt_steps, test_steps)
-            if test_steps == cnt_steps:
-                break
-
-            hierarchical_batch_predictions = self.model.predict_on_batch(images[0])
-
-            for i, batch_predictions in enumerate(hierarchical_batch_predictions):
-                batch_predictions_clipped = self._clip_predictions(batch_predictions)
-                batch_predictions_sparse = sparse.csr_matrix(batch_predictions_clipped)
-                hierarchical_predictions_sparse[i].append(batch_predictions_sparse)
-
-        hierarchical_predictions_sparse = [sparse.vstack(level_predictions_sparse)
-                                           for level_predictions_sparse in hierarchical_predictions_sparse]
-
-        return hierarchical_predictions_sparse
+    def _create_callbacks(self, **kwargs):
+        lr_scheduler = ReduceLR(**kwargs['lr_scheduler'])
+        early_stopping = EarlyStopping(**kwargs['early_stopping'])
+        checkpoint_filepath = kwargs['model_checkpoint']['filepath']
+        create_filepath(checkpoint_filepath)
+        model_checkpoint = ModelCheckpoint(**kwargs['model_checkpoint'])
+        neptune = NeptuneMonitorMultiOutput(**kwargs['neptune_monitor'])
+        return [neptune, lr_scheduler, early_stopping, model_checkpoint]

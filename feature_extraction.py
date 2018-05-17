@@ -38,33 +38,57 @@ class SubsetNotNan(BaseTransformer):
 
     def transform(self, X, y=None, **kwargs):
         if y is not None:
-            Xy = pd.concat([X, y], axis=1)
-            Xy_subset = Xy[~pd.isnull(Xy[self.nan_column])]
-            return {'X': Xy_subset[X.columns],
-                    'y': Xy_subset[y.columns]}
+            non_null_mask = ~ pd.isnull(X[self.nan_column].values)
+            X_, y_ = X[non_null_mask], y[non_null_mask]
+            return {'X': X_[X.columns],
+                    'y': y_[y.columns]}
         else:
-            X_subset = X[~pd.isnull(X[self.nan_column])]
-            return {'X': X_subset[X.columns]
-                    }
+            non_null_mask = ~ pd.isnull(X[self.nan_column].values)
+            X_ = X[non_null_mask]
+            return {'X': X_[X.columns]}
+
+
+class JoinWithNan(BaseTransformer):
+    def __init__(self, index_column):
+        self.index_column = index_column
+
+    def transform(self, X, X_index, **kwargs):
+        X = []
+        return {'X': X}
+
+
+class ImageFeatures(BaseTransformer):
+    def transform(self, X, **kwargs):
+        X['image_is_nan'] = pd.isnull(X['image']).astype(int)
+        X['parent_category_name_in_top_1'] = []
+        X['category_name_in_top_1'] = []
+        X['category_name_in_top_5'] = []
+        return {'X': X}
+
+
+class FetchColumns(BaseTransformer):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def transform(self, X, **kwargs):
+        return {'X': X[self.columns]}
 
 
 class LabelEncoder(BaseTransformer):
     def __init__(self, columns_to_encode):
         self.columns_to_encode = columns_to_encode
-        self.columns_with_encoders = [(col_name, prep.LabelEncoder())
+        self.columns_with_encoders = [[col_name, prep.LabelEncoder()]
                                       for col_name in columns_to_encode]
 
-    def fit(self, y, **kwargs):
+    def fit(self, categorical_features, **kwargs):
         for column_name, encoder in self.columns_with_encoders:
-            encoder.fit(y[column_name])
+            encoder.fit(categorical_features[column_name].astype(str).values)
         return self
 
-    def transform(self, y, **kwargs):
-        y_ = y.copy()
+    def transform(self, categorical_features, **kwargs):
         for column_name, encoder in self.columns_with_encoders:
-            y_[column_name] = encoder.transform(y[column_name])
-        print(y_)
-        return {'y': y_}
+            categorical_features[column_name] = encoder.transform(categorical_features[column_name].astype(str).values)
+        return {'categorical_features': categorical_features}
 
     def load(self, filepath):
         self.columns_with_encoders = joblib.load(filepath)

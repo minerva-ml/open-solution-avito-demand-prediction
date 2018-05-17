@@ -9,7 +9,7 @@ from keras.utils.np_utils import to_categorical
 from sklearn.externals import joblib
 
 from steps.base import BaseTransformer
-from augmentation import fast_seq
+from augmentation import fast_augmentation
 
 
 class MultiOutputImageLoader(BaseTransformer):
@@ -17,18 +17,19 @@ class MultiOutputImageLoader(BaseTransformer):
         super().__init__()
         self.loader_params = loader_params
 
-    def transform(self, X, y, X_valid=None, y_valid=None, train_mode=True):
+    def transform(self, X, y, image_dir, X_valid=None, y_valid=None, train_mode=True):
         if train_mode:
-            flow, steps = build_pandas_datagen(X, y, train_mode, self.loader_params['training'])
+            flow, steps = build_pandas_datagen(X, y, image_dir,
+                                               True, self.loader_params['training'])
         else:
-            flow, steps = build_pandas_datagen(X, y, train_mode, self.loader_params['inference'])
+            flow, steps = build_pandas_datagen(X, y, image_dir,
+                                               False, self.loader_params['inference'])
 
         if X_valid is not None and y_valid is not None:
-            valid_flow, valid_steps = build_pandas_datagen(X_valid, y_valid, False,
-                                                           self.loader_params['inference'])
+            valid_flow, valid_steps = build_pandas_datagen(X_valid, y_valid, image_dir,
+                                                           False, self.loader_params['inference'])
         else:
-            valid_flow = None
-            valid_steps = None
+            valid_flow, valid_steps = None, None
 
         return {'datagen': (flow, steps),
                 'validation_datagen': (valid_flow, valid_steps)}
@@ -43,10 +44,11 @@ class MultiOutputImageLoader(BaseTransformer):
         joblib.dump(params, filepath)
 
 
-def build_pandas_datagen(X, y, train_mode, loader_params):
-    datagen = PandasImageDataGenerator(preprocessing_function=partial(fast_seq, train_mode=train_mode))
+def build_pandas_datagen(X, y, image_dir, train_mode, loader_params):
+    preprocessing_function = partial(fast_augmentation, with_augmentation=train_mode)
+    datagen = PandasImageDataGenerator(preprocessing_function=preprocessing_function)
 
-    flow = datagen.flow_from_pandas(X, y, **loader_params)
+    flow = datagen.flow_from_pandas(X, y, image_dir, **loader_params)
     steps = ceil(X.shape[0] / loader_params['batch_size'])
 
     return flow, steps
@@ -66,8 +68,8 @@ class PandasIterator(Iterator):
                  image_data_generator,
                  target_size, color_mode, channel_order,
                  batch_size, shuffle, seed):
-        self.X = X
-        self.y = y
+        self.X = X.values.reshape(-1)
+        self.y = y.values
         self.image_dir = image_dir
         self.num_classes = num_classes
         self.image_data_generator = image_data_generator
@@ -80,21 +82,18 @@ class PandasIterator(Iterator):
         self.samples = X.shape[0]
 
         super().__init__(self.samples, batch_size, shuffle, seed)
-        """Note:
-        Tensorflow channels order only rgb only
-        """
 
     def _get_batches_of_transformed_samples(self, index_array):
         batch_x = np.zeros((len(index_array),) + self.image_shape, dtype=K.floatx())
         batch_y_id = self.y[index_array]
-        print('Unique classes in batch', [np.unique(batch_y_id[:, i]).shape for i in range(3)])
+        print('Unique classes in batch', [np.unique(batch_y_id[:, i]).shape for i in range(2)])
         batch_y = []
         for i, num_classes in enumerate(self.num_classes):
             batch_y_level = to_categorical(batch_y_id[:, i], num_classes=num_classes)
             batch_y.append(batch_y_level)
 
         for i, j in enumerate(index_array):
-            img_id = self.X.iloc[j]
+            img_id = self.X[j]
             img = self._load_img(img_id, target_size=self.target_size)
             x = img_to_array(img, data_format=self.data_format)
             x = self.image_data_generator.random_transform(x)

@@ -28,13 +28,13 @@ NUMERICAL_COLUMNS = ['price']
 TEXT_COLUMNS = ['title', 'description']
 IMAGE_COLUMNS = ['image']
 TARGET_COLUMNS = ['deal_probability']
-IMAGE_TARGET_COLUMNS = ['parent_category_name', 'category_name', ]
+IMAGE_TARGET_COLUMNS = ['parent_category_name', 'category_name']
 CV_COLUMN = ['user_id']
 TIMESTAMP_COLUMNS = ['activation_date']
 ITEM_ID_COLUMN = ['item_id']
 USER_ID_COLUMN = ['user_id']
 
-DEV_SAMPLE_SIZE = int(20e4)
+DEV_SAMPLE_SIZE = int(10e2)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
@@ -46,6 +46,9 @@ COLUMN_TYPES = {'train': {'price': 'float64',
                               'image_top_1': 'float64',
                               }
                 }
+
+IMAGE_PARAMS = AttrDict({'h': safe_eval(params.target_size)[0],
+                         'w': safe_eval(params.target_size)[1]})
 
 SOLUTION_CONFIG = AttrDict({
     'env': {'cache_dirpath': params.experiment_dir
@@ -63,7 +66,14 @@ SOLUTION_CONFIG = AttrDict({
                                    'categorical_columns': CATEGORICAL_COLUMNS,
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
+
+    'fetch_image_columns': {'columns': IMAGE_COLUMNS},
+
     'subset_not_nan_image': {'nan_column': IMAGE_COLUMNS},
+    'join_with_nan': {'index_column': ITEM_ID_COLUMN},
+
+    'label_encoder': {'columns_to_encode': CATEGORICAL_COLUMNS},
+
     'label_encoder_image': {'columns_to_encode': IMAGE_TARGET_COLUMNS},
 
     'groupby_aggregation': {'groupby_aggregations': [
@@ -81,17 +91,39 @@ SOLUTION_CONFIG = AttrDict({
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
                        },
 
-    'loader': {'training': {'batch_size': params.batch_size_train,
-                            'shuffle': True,
-                            'num_classes': safe_eval(params.num_classes),
-                            'target_size': safe_eval(params.target_size)
-                            },
-               'inference': {'batch_size': params.batch_size_inference,
-                             'shuffle': False,
-                             'num_classes': safe_eval(params.num_classes),
-                             'target_size': safe_eval(params.target_size)
-                             },
+    'loader': {'loader_params': {'training': {'batch_size': params.batch_size_train,
+                                              'shuffle': True,
+                                              'num_classes': safe_eval(params.num_classes),
+                                              'target_size': safe_eval(params.target_size),
+                                              },
+                                 'inference': {'batch_size': params.batch_size_inference,
+                                               'shuffle': False,
+                                               'num_classes': safe_eval(params.num_classes),
+                                               'target_size': safe_eval(params.target_size),
+                                               },
+                                 }
                },
+
+    'inception_resnet': {'architecture_config': {'num_classes': safe_eval(params.num_classes),
+                                                 'target_size': safe_eval(params.target_size),
+                                                 'loss_weights': [0.5, 0.5],
+                                                 'trainable_threshold': -1,
+                                                 'lr': params.lr,
+                                                 },
+                         'training_config': {'epochs': params.epochs,
+                                             'workers': params.num_workers
+                                             },
+                         'callbacks_config': {'lr_scheduler': {'gamma': params.lr_gamma},
+                                              'model_checkpoint': {'filepath': os.path.join(params.experiment_dir,
+                                                                                            'checkpoints',
+                                                                                            'inception_resnet',
+                                                                                            'best_model.h5'),
+                                                                   'save_best_only': True,
+                                                                   'save_weights_only': False},
+                                              'early_stopping': {'patience': params.patience},
+                                              'neptune_monitor': {'model_name': 'inception_resnet'}
+                                              }
+                         },
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),

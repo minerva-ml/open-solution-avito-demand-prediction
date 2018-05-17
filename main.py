@@ -35,12 +35,14 @@ def _train(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                 # usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN + cfg.IMAGE_TARGET_COLUMNS,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(params.train_filepath,
-                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                 # usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
+                                 usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN + cfg.IMAGE_TARGET_COLUMNS,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
     meta_train_split, meta_valid_split = stratified_train_valid_split(meta_train,
@@ -64,6 +66,7 @@ def _train(pipeline_name, dev_mode):
                       'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y_valid': meta_valid_split[cfg.IMAGE_TARGET_COLUMNS],
                       },
+            'specs': {'image_dir': params.train_image_dir}
             }
 
     pipeline = PIPELINES[pipeline_name]['train'](cfg.SOLUTION_CONFIG)
@@ -104,6 +107,7 @@ def _evaluate(pipeline_name, dev_mode):
     data = {'input': {'X': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y': None,
                       },
+            'specs': {'image_dir': params.train_image_dir}
             }
     pipeline = PIPELINES[pipeline_name]['inference'](cfg.SOLUTION_CONFIG)
     pipeline.clean_cache()
@@ -145,6 +149,7 @@ def _predict(pipeline_name, dev_mode):
     data = {'input': {'X': meta_test[cfg.FEATURE_COLUMNS],
                       'y': None,
                       },
+            'specs': {'image_dir': params.test_image_dir}
             }
 
     pipeline = PIPELINES[pipeline_name]['inference'](cfg.SOLUTION_CONFIG)
