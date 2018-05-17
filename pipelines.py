@@ -43,7 +43,7 @@ def feature_extraction(config, train_mode, **kwargs):
         dataframe_features_train, dataframe_features_valid = dataframe_features(
             (feature_by_type_split, feature_by_type_split_valid), config, train_mode, **kwargs)
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features_train
-        categorical_valid, timestamp_valid, prices_valid, group_by_valid, target_encoder_valid = dataframe_features_train
+        categorical_valid, timestamp_valid, prices_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[prices,
                                                                                       target_encoder,
@@ -68,14 +68,9 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features(feature_by_type_split, config,
                                                                                       train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[prices,
-                                                              target_encoder,
-                                                              group_by],
+        feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by],
                                           numerical_features_valid=[],
-                                          categorical_features=[timestamp,
-                                                                missing,
-                                                                categorical,
-                                                                target_encoder],
+                                          categorical_features=[timestamp, missing, categorical, target_encoder],
                                           categorical_features_valid=[],
                                           config=config, train_mode=train_mode, **kwargs)
         return feature_combiner
@@ -98,7 +93,7 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
             config, train_mode, **kwargs)
 
         groupby_aggregation, groupby_aggregation_valid = _groupby_aggregations(
-            (feature_by_type_split, feature_by_type_split_valid),
+            (feature_by_type_split, feature_by_type_split_valid), (timestamp_features, timestamp_features_valid),
             config, train_mode, **kwargs)
         target_encoder, target_encoder_valid = _target_encoders((feature_by_type_split, feature_by_type_split_valid),
                                                                 config, train_mode, **kwargs)
@@ -119,7 +114,8 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
         encoded_categorical = _encode_categorical(feature_by_type_split, config, train_mode, **kwargs)
         timestamp_features = _timestamp_features(feature_by_type_split, config, train_mode, **kwargs)
         price_features = _price_features(feature_by_type_split, config, train_mode, **kwargs)
-        groupby_aggregation = _groupby_aggregations(feature_by_type_split, config, train_mode, **kwargs)
+        groupby_aggregation = _groupby_aggregations(feature_by_type_split, timestamp_features,
+                                                    config, train_mode, **kwargs)
         target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
 
         train_features = (encoded_categorical,
@@ -382,14 +378,16 @@ def _target_encoders(dispatchers, config, train_mode, **kwargs):
         return target_encoder
 
 
-def _groupby_aggregations(dispatchers, config, train_mode, **kwargs):
+def _groupby_aggregations(dispatchers, additional_features, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
+        added_feature, added_feature_valid = additional_features
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[feature_by_type_split],
+                                    input_steps=[feature_by_type_split, added_feature],
                                     adapter={
                                         'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
+                                                                  (added_feature.name, 'categorical_features'),
                                                                   (feature_by_type_split.name, 'numerical_features')],
                                                                  pandas_concat_inputs)
                                     },
@@ -398,9 +396,10 @@ def _groupby_aggregations(dispatchers, config, train_mode, **kwargs):
 
         groupby_aggregations_valid = Step(name='groupby_aggregations_valid',
                                           transformer=groupby_aggregations,
-                                          input_steps=[feature_by_type_split_valid],
+                                          input_steps=[feature_by_type_split_valid, added_feature_valid],
                                           adapter={'categorical_features': (
                                               [(feature_by_type_split_valid.name, 'categorical_features'),
+                                               (added_feature_valid.name, 'categorical_features'),
                                                (feature_by_type_split_valid.name, 'numerical_features')],
                                               pandas_concat_inputs
                                           )
@@ -412,11 +411,13 @@ def _groupby_aggregations(dispatchers, config, train_mode, **kwargs):
 
     else:
         feature_by_type_split = dispatchers
+        added_feature = additional_features
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[feature_by_type_split],
+                                    input_steps=[feature_by_type_split, added_feature],
                                     adapter={
                                         'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
+                                                                  (added_feature.name, 'categorical_features'),
                                                                   (feature_by_type_split.name, 'numerical_features')],
                                                                  pandas_concat_inputs)
                                     },

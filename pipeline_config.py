@@ -33,7 +33,7 @@ TIMESTAMP_COLUMNS = ['activation_date']
 ITEM_ID_COLUMN = ['item_id']
 USER_ID_COLUMN = ['user_id']
 
-DEV_SAMPLE_SIZE = int(20e4)
+DEV_SAMPLE_SIZE = int(10e2)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
@@ -68,6 +68,7 @@ SOLUTION_CONFIG = AttrDict({
     'categorical_encoder': {'columns_to_encode': CATEGORICAL_COLUMNS},
 
     'groupby_aggregation': {'groupby_aggregations': [
+        {'groupby': ['user_id', 'activation_date_weekday'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'var'},
         {'groupby': ['user_id'], 'select': 'parent_category_name', 'agg': 'nunique'},

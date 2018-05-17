@@ -123,7 +123,7 @@ class TargetEncoderNSplits(BaseTransformer):
         return confidence_rate_names
 
     def _is_null_names(self, columns):
-        is_null_names = ['target_mean_is_nan_{}'.format(column) for column in columns]
+        is_null_names = ['target_mean_is_missing_{}'.format(column) for column in columns]
         return is_null_names
 
     def fit(self, categorical_features, target, **kwargs):
@@ -210,7 +210,7 @@ class TimeDelta(BaseTransformer):
 
     @property
     def is_null_names(self):
-        is_null_names = ['time_delta_is_nan_{}'.format('_'.join(groupby_spec))
+        is_null_names = ['time_delta_is_missing_{}'.format('_'.join(groupby_spec))
                          for groupby_spec in self.groupby_specs]
         return is_null_names
 
@@ -246,6 +246,7 @@ class GroupbyAggregations(BaseTransformer):
 
     def transform(self, categorical_features):
         for spec, groupby_aggregations_name in zip(self.groupby_aggregations, self.groupby_aggregations_names):
+            logger.info('processing {}'.format(groupby_aggregations_name))
             group_object = categorical_features.groupby(spec['groupby'])
 
             categorical_features = categorical_features.merge(
@@ -277,16 +278,24 @@ class CategoricalEncoder(BaseTransformer):
 
     def fit(self, categorical_features, **kwargs):
         for column_name, encoder in self.columns_with_encoders:
+            logger.info('fitting {}'.format(column_name))
             encoder.fit(categorical_features[column_name].astype(str).values)
         return self
 
     def transform(self, categorical_features, **kwargs):
         for column_name, encoder in self.columns_with_encoders:
-            # categorical_features[column_name] = categorical_features[column_name] \
-            #     .map(lambda s: '<unknown>' if s not in encoder.classes_ else s)
-            # encoder.classes_ = np.append(encoder.classes_, '<unknown>')
-            encoder.transform(categorical_features[column_name].astype(str).values)
+            logger.info('transforming {}'.format(column_name))
+            categorical_features[column_name], encoder = self._input_unknown(categorical_features[column_name], encoder)
+            categorical_features[column_name] = encoder.transform(categorical_features[column_name].astype(str).values)
         return {'categorical_features': categorical_features}
+
+    def _input_unknown(self, column, encoder):
+        def func(x):
+            return '<unknown>' if x not in encoder.classes_ else x
+
+        column = column.apply(func)
+        encoder.classes_ = np.append(encoder.classes_, '<unknown>')
+        return column, encoder
 
     def load(self, filepath):
         self.columns_with_encoders = joblib.load(filepath)
@@ -302,17 +311,17 @@ class DateFeatures(BaseTransformer):
 
     @property
     def date_features_names(self):
-        date_features_names = ['date_features_{}_month'.format(self.date_column),
-                               'date_features_{}_day'.format(self.date_column),
-                               'date_features_{}_weekday'.format(self.date_column),
+        date_features_names = ['{}_month'.format(self.date_column),
+                               '{}_day'.format(self.date_column),
+                               '{}_weekday'.format(self.date_column),
                                ]
         return date_features_names
 
     def transform(self, timestamp_features, **kwargs):
         date_index = pd.DatetimeIndex(timestamp_features[self.date_column])
-        timestamp_features['date_features_{}_month'.format(self.date_column)] = date_index.month
-        timestamp_features['date_features_{}_day'.format(self.date_column)] = date_index.day
-        timestamp_features['date_features_{}_weekday'.format(self.date_column)] = date_index.weekday
+        timestamp_features['{}_month'.format(self.date_column)] = date_index.month
+        timestamp_features['{}_day'.format(self.date_column)] = date_index.day
+        timestamp_features['{}_weekday'.format(self.date_column)] = date_index.weekday
         return {'categorical_features': timestamp_features[self.date_features_names].astype(int)}
 
 

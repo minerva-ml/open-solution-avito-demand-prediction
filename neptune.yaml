@@ -18,22 +18,33 @@ exclude:
 
 parameters:
 # Data
-  train_filepath: YOUR/PATH/TO/train.csv
-  test_filepath: YOUR/PATH/TO/test.csv
-  image_dir: YOUR/PATH/TO/IMAGES/data
-  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
+  train_filepath: YOUR/PATH
+  test_filepath:  YOUR/PATH
+  train_image_dir:  YOUR/PATH
+  test_image_dir:  YOUR/PATH
+  experiment_dir:  YOUR/PATH
 
 # Validation
   target_bins: 100
   validation_size: 0.2
 
 # Execution
-  overwrite: 0
+  overwrite: 1
   num_workers: 10
   verbose: 1
 
 # Preprocessing
   target_encoder__n_splits: 10
+
+# Image Model
+  batch_size_train: 8
+  batch_size_inference: 8
+  num_classes: '(9, 47)'
+  target_size: '(299, 299)'
+  epochs: 10
+  lr: 0.00025
+  lr_gamma: 1.0
+  patience: 3
 
 # Light GBM
   lgbm_random_search_runs: 0
