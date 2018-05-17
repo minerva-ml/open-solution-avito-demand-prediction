@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
 from sklearn.externals import joblib
+from sklearn import preprocessing as prep
 
 from steps.base import BaseTransformer
 from steps.utils import get_logger
@@ -122,7 +123,7 @@ class TargetEncoderNSplits(BaseTransformer):
         return confidence_rate_names
 
     def _is_null_names(self, columns):
-        is_null_names = ['target_mean_is_nan_{}'.format(column) for column in columns]
+        is_null_names = ['target_mean_is_missing_{}'.format(column) for column in columns]
         return is_null_names
 
     def fit(self, categorical_features, target, **kwargs):
@@ -209,7 +210,7 @@ class TimeDelta(BaseTransformer):
 
     @property
     def is_null_names(self):
-        is_null_names = ['time_delta_is_nan_{}'.format('_'.join(groupby_spec))
+        is_null_names = ['time_delta_is_missing_{}'.format('_'.join(groupby_spec))
                          for groupby_spec in self.groupby_specs]
         return is_null_names
 
@@ -245,6 +246,7 @@ class GroupbyAggregations(BaseTransformer):
 
     def transform(self, categorical_features):
         for spec, groupby_aggregations_name in zip(self.groupby_aggregations, self.groupby_aggregations_names):
+            logger.info('processing {}'.format(groupby_aggregations_name))
             group_object = categorical_features.groupby(spec['groupby'])
 
             categorical_features = categorical_features.merge(
@@ -253,6 +255,94 @@ class GroupbyAggregations(BaseTransformer):
                 on=spec['groupby'], how='left')
 
         return {'numerical_features': categorical_features[self.groupby_aggregations_names].astype(np.float32)}
+
+
+class IsMissing(BaseTransformer):
+    def __init__(self, columns):
+        self.columns = columns
+
+    @property
+    def missing_names(self):
+        return ['{}_is_missing'.format(col) for col in self.columns]
+
+    def transform(self, X, **kwargs):
+        for name, missing_name in zip(self.columns, self.missing_names):
+            X[missing_name] = pd.isnull(X[name]).astype(int)
+        return {'categorical_features': X[self.missing_names]}
+
+
+class HashingCategoricalEncoder(BaseTransformer):
+    def __init__(self, **kwargs):
+        self.hashing_encoder = ce.HashingEncoder(**kwargs)
+
+    def fit(self, categorical_features, **kwargs):
+        self.hashing_encoder.fit(categorical_features)
+        return self
+
+    def transform(self, categorical_features, **kwargs):
+        categorical_features = self.hashing_encoder.transform(categorical_features)
+        return {'categorical_features': categorical_features}
+
+    def load(self, filepath):
+        self.hashing_encoder = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.hashing_encoder, filepath)
+
+
+class CategoricalEncoder(BaseTransformer):
+    def __init__(self, columns_to_encode):
+        self.columns_to_encode = columns_to_encode
+        self.columns_with_encoders = [(col_name, prep.LabelEncoder()) for col_name in columns_to_encode]
+
+    def fit(self, categorical_features, **kwargs):
+        for column_name, encoder in self.columns_with_encoders:
+            logger.info('fitting {}'.format(column_name))
+            encoder.fit(categorical_features[column_name].astype(str).values)
+        return self
+
+    def transform(self, categorical_features, **kwargs):
+        for column_name, encoder in self.columns_with_encoders:
+            logger.info('transforming {}'.format(column_name))
+            categorical_features[column_name], encoder = self._input_unknown(categorical_features[column_name], encoder)
+            categorical_features[column_name] = encoder.transform(categorical_features[column_name].astype(str).values)
+        return {'categorical_features': categorical_features}
+
+    def _input_unknown(self, column, encoder):
+        def func(x):
+            return '<unknown>' if x not in encoder.classes_ else x
+
+        column = column.apply(func)
+        encoder.classes_ = np.append(encoder.classes_, '<unknown>')
+        return column, encoder
+
+    def load(self, filepath):
+        self.columns_with_encoders = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.columns_with_encoders, filepath)
+
+
+class DateFeatures(BaseTransformer):
+    def __init__(self, date_column):
+        self.date_column = date_column
+
+    @property
+    def date_features_names(self):
+        date_features_names = ['{}_month'.format(self.date_column),
+                               '{}_day'.format(self.date_column),
+                               '{}_weekday'.format(self.date_column),
+                               ]
+        return date_features_names
+
+    def transform(self, timestamp_features, **kwargs):
+        date_index = pd.DatetimeIndex(timestamp_features[self.date_column])
+        timestamp_features['{}_month'.format(self.date_column)] = date_index.month
+        timestamp_features['{}_day'.format(self.date_column)] = date_index.day
+        timestamp_features['{}_weekday'.format(self.date_column)] = date_index.weekday
+        return {'categorical_features': timestamp_features[self.date_features_names].astype(int)}
 
 
 class Blacklist(BaseTransformer):
