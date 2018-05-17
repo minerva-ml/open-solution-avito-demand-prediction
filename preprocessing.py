@@ -10,18 +10,18 @@ features_to_translate = ['category_name', 'city', 'description', 'param_1', 'par
                          'parent_category_name', 'region', 'title']
 
 
-def translate(filepath, filepath_en):
-    if not os.path.isfile(filepath_en):
-        df = pd.read_csv(filepath)
+def translate(filepath):
 
-        for feature in features_to_translate:
-            translated_col = Parallel(n_jobs=8)(delayed(_translate)(i) for i in df[feature].unique())
-            translated_col = pd.DataFrame(translated_col, columns=[feature, '{}_en'.format(feature)])
-            df = df.merge(translated_col, on=[feature], how='left')
-            df = df.drop(feature, axis=1)
-            df = df.rename(index=str, columns={'{}_en'.format(feature): feature})
+    df = pd.read_csv(filepath)
 
-        df.to_csv(os.path.join(filepath_en))
+    for feature in features_to_translate:
+        translated_col = Parallel(n_jobs=8)(delayed(_translate)(i) for i in df[feature].unique())
+        translated_col = pd.DataFrame(translated_col, columns=[feature, '{}_en'.format(feature)])
+        df = df.merge(translated_col, on=[feature], how='left')
+        df = df.drop(feature, axis=1)
+        df = df.rename(index=str, columns={'{}_en'.format(feature): feature})
+
+    return df
 
 
 def _translate(x):

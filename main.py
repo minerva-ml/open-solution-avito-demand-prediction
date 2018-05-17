@@ -24,10 +24,14 @@ def action():
 
 @action.command()
 def translate_to_english():
-    logger.info('translating train')
-    translate(filepath=params.train_filepath, filepath_en=params.train_en_filepath)
-    logger.info('translating test')
-    translate(filepath=params.test_filepath, filepath_en=params.test_en_filepath)
+    filepath_train_en = params.train_en_filepath
+    filepath_test_en = params.test_en_filepath
+    if not os.path.isfile(filepath_train_en):
+        logger.info('translating train')
+        translate(filepath=params.train_filepath).to_csv(filepath_train_en)
+    if not os.path.isfile(filepath_test_en):
+        logger.info('translating test')
+        translate(filepath=params.test_filepath).to_csv(filepath_test_en)
 
 
 @action.command()
@@ -38,17 +42,22 @@ def train(pipeline_name, dev_mode):
 
 
 def _train(pipeline_name, dev_mode):
+    if params.use_english:
+        train_filepath = params.train_en_filepath
+    else:
+        train_filepath = params.train_filepath
+
     if bool(params.overwrite) and os.path.isdir(params.experiment_dir):
         shutil.rmtree(params.experiment_dir)
 
     logger.info('reading data in')
     if dev_mode:
-        meta_train = pd.read_csv(params.train_en_filepath,
+        meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_train = pd.read_csv(params.train_en_filepath,
+        meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
@@ -90,13 +99,18 @@ def evaluate(pipeline_name, dev_mode):
 
 def _evaluate(pipeline_name, dev_mode):
     logger.info('reading data in')
+    if params.use_english:
+        train_filepath = params.train_en_filepath
+    else:
+        train_filepath = params.train_filepath
+
     if dev_mode:
-        meta_train = pd.read_csv(params.train_en_filepath,
+        meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_train = pd.read_csv(params.train_en_filepath,
+        meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
@@ -138,14 +152,19 @@ def predict(pipeline_name, dev_mode):
 
 
 def _predict(pipeline_name, dev_mode):
+    if params.use_english:
+        test_filepath = params.test_en_filepath
+    else:
+        test_filepath = params.test_filepath
+
     logger.info('reading data in')
     if dev_mode:
-        meta_test = pd.read_csv(params.test_en_filepath,
+        meta_test = pd.read_csv(test_filepath,
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'],
                                 nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_test = pd.read_csv(params.test_en_filepath,
+        meta_test = pd.read_csv(test_filepath,
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'])
 
