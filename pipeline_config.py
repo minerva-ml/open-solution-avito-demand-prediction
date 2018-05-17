@@ -33,7 +33,7 @@ TIMESTAMP_COLUMNS = ['activation_date']
 ITEM_ID_COLUMN = ['item_id']
 USER_ID_COLUMN = ['user_id']
 
-DEV_SAMPLE_SIZE = int(20e4)
+DEV_SAMPLE_SIZE = int(10e2)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
@@ -63,14 +63,15 @@ SOLUTION_CONFIG = AttrDict({
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
 
-    'text_counter': {'text_column': 'description'},
-
-    'text_cleaner': {'text_features': ['description', 'title'],
-                     'drop_punctuation': True,
-                     'all_lower_case': True
-                     },
+    'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
+    'is_missing': {'columns': FEATURE_COLUMNS},
+    'categorical_encoder': {'cols': CATEGORICAL_COLUMNS,
+                            'n_components': params.categorical_encoder__n_components,
+                            'hash_method': params.categorical_encoder__hash_method
+                            },
 
     'groupby_aggregation': {'groupby_aggregations': [
+        {'groupby': ['user_id', 'activation_date_weekday'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'var'},
         {'groupby': ['user_id'], 'select': 'parent_category_name', 'agg': 'nunique'},
