@@ -7,6 +7,7 @@ from deepsense import neptune
 
 import pipeline_config as cfg
 from pipelines import PIPELINES
+from preprocessing import translate
 from utils import init_logger, read_params, create_submission, set_seed, save_evaluation_predictions, \
     stratified_train_valid_split, data_hash_channel_send, root_mean_squared_error
 
@@ -22,6 +23,14 @@ def action():
 
 
 @action.command()
+def translate_to_english():
+    logger.info('translating train')
+    translate(filepath=params.train_filepath, filepath_en=params.train_en_filepath)
+    logger.info('translating test')
+    translate(filepath=params.test_filepath, filepath_en=params.test_en_filepath)
+
+
+@action.command()
 @click.option('-p', '--pipeline_name', help='pipeline to be trained', required=True)
 @click.option('-d', '--dev_mode', help='if true only a small sample of data will be used', is_flag=True, required=False)
 def train(pipeline_name, dev_mode):
@@ -34,12 +43,12 @@ def _train(pipeline_name, dev_mode):
 
     logger.info('reading data in')
     if dev_mode:
-        meta_train = pd.read_csv(params.train_filepath,
+        meta_train = pd.read_csv(params.train_en_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_train = pd.read_csv(params.train_filepath,
+        meta_train = pd.read_csv(params.train_en_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
@@ -82,12 +91,12 @@ def evaluate(pipeline_name, dev_mode):
 def _evaluate(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
-        meta_train = pd.read_csv(params.train_filepath,
+        meta_train = pd.read_csv(params.train_en_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_train = pd.read_csv(params.train_filepath,
+        meta_train = pd.read_csv(params.train_en_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
 
@@ -131,12 +140,12 @@ def predict(pipeline_name, dev_mode):
 def _predict(pipeline_name, dev_mode):
     logger.info('reading data in')
     if dev_mode:
-        meta_test = pd.read_csv(params.test_filepath,
+        meta_test = pd.read_csv(params.test_en_filepath,
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'],
                                 nrows=cfg.DEV_SAMPLE_SIZE)
     else:
-        meta_test = pd.read_csv(params.test_filepath,
+        meta_test = pd.read_csv(params.test_en_filepath,
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'])
 
