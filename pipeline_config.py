@@ -65,7 +65,10 @@ SOLUTION_CONFIG = AttrDict({
 
     'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
     'is_missing': {'columns': FEATURE_COLUMNS},
-    'categorical_encoder': {'columns_to_encode': CATEGORICAL_COLUMNS},
+    'categorical_encoder': {'cols': CATEGORICAL_COLUMNS,
+                            'n_components': params.categorical_encoder__n_components,
+                            'hash_method': params.categorical_encoder__hash_method
+                            },
 
     'groupby_aggregation': {'groupby_aggregations': [
         {'groupby': ['user_id', 'activation_date_weekday'], 'select': 'price', 'agg': 'mean'},
