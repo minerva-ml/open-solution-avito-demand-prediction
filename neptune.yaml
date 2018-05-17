@@ -18,10 +18,11 @@ exclude:
 
 parameters:
 # Data
-  train_filepath: YOUR/PATH/TO/train.csv
-  test_filepath: YOUR/PATH/TO/test.csv
-  image_dir: YOUR/PATH/TO/IMAGES/data
-  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
+  train_filepath: YOUR/PATH
+  test_filepath:  YOUR/PATH
+  train_image_dir:  YOUR/PATH
+  test_image_dir:  YOUR/PATH
+  experiment_dir:  YOUR/PATH
 
   train_en_filepath: YOUR/PATH/TO/train_en.csv
   test_en_filepath: YOUR/PATH/TO/test_en.csv
@@ -31,7 +32,7 @@ parameters:
   validation_size: 0.2
 
 # Execution
-  overwrite: 0
+  overwrite: 1
   num_workers: 10
   verbose: 1
 
