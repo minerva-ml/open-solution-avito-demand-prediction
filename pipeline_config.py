@@ -70,6 +70,13 @@ SOLUTION_CONFIG = AttrDict({
                             'hash_method': params.categorical_encoder__hash_method
                             },
 
+    'text_counter': {'text_column': 'description'},
+
+    'text_cleaner': {'text_features': ['description', 'title'],
+                     'drop_punctuation': True,
+                     'all_lower_case': True
+                     },
+
     'groupby_aggregation': {'groupby_aggregations': [
         {'groupby': ['user_id', 'activation_date_weekday'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
