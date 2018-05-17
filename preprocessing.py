@@ -25,10 +25,10 @@ def translate(filepath, filepath_en):
 
 
 def _translate(x):
-    t = x
+    translated = x
     try:
-        t = translator.translate(x, src='ru', dest='en').text
+        translated = translator.translate(x, src='ru', dest='en').text
     except Exception as e:
         # print(e)
         pass
-    return x, t
+    return x, translated
