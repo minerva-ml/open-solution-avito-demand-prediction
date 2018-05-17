@@ -63,6 +63,11 @@ SOLUTION_CONFIG = AttrDict({
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
 
+    'text_cleaner': {'text_features': ['description', 'title'],
+                     'drop_punctuation': True,
+                     'all_lower_case': True
+                     },
+
     'groupby_aggregation': {'groupby_aggregations': [
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'mean'},
         {'groupby': ['user_id'], 'select': 'price', 'agg': 'var'},

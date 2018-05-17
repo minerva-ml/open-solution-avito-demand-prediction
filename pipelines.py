@@ -212,7 +212,7 @@ def _text_cleaner(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         text_cleaner = Step(name='text_cleaner',
-                            transformer=fe.TextCleaner(),
+                            transformer=fe.TextCleaner(**config.text_cleaner),
                             input_steps=[feature_by_type_split],
                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
                             cache_dirpath=config.env.cache_dirpath,
@@ -230,7 +230,7 @@ def _text_cleaner(dispatchers, config, train_mode, **kwargs):
     else:
         feature_by_type_split = dispatchers
         text_cleaner = Step(name='text_cleaner',
-                            transformer=fe.TextCleaner(),
+                            transformer=fe.TextCleaner(**config.text_cleaner),
                             input_steps=[feature_by_type_split],
                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
                             cache_dirpath=config.env.cache_dirpath,

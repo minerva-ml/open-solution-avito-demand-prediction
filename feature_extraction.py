@@ -238,27 +238,28 @@ class TextCounter(BaseTransformer):
 
 
 class TextCleaner(BaseTransformer):
-    def __init__(self, drop_punctuation=1, all_lower_case=1):
+    def __init__(self, text_features, drop_punctuation, all_lower_case):
+        self.text_features = text_features
         self.drop_punctuation = drop_punctuation
         self.all_lower_case = all_lower_case
 
+    @property
+    def text_cleaner_names(self):
+        text_cleaner_names = ['{}_clean'.format(feature) for feature in self.text_features]
+        return text_cleaner_names
+
     def transform(self, X):
-        X = pd.DataFrame(X, columns=['description']).astype(str)
-        X['text'] = X['description'].apply(self._transform)
-        return {'categorical_features': X['text']}
+        X = pd.DataFrame(X, columns=self.text_features).astype(str)
+        for feature, text_cleaner_name in zip(self.text_features, self.text_cleaner_names):
+            X[text_cleaner_name] = X[feature].apply(self._transform)
+        return {'categorical_features': X[self.text_cleaner_names]}
 
     def _transform(self, x):
         if self.all_lower_case:
-            x = self._lower(x)
+            x = x.lower()
         if self.drop_punctuation:
-            x = self._remove_punctuation(x)
+            x = re.sub(r'[^\w\s]', ' ', x)
         return x
-
-    def _lower(self, x):
-        return x.lower()
-
-    def _remove_punctuation(self, x):
-        return re.sub(r'[^\w\s]', ' ', x)
 
 
 class TimeDelta(BaseTransformer):
