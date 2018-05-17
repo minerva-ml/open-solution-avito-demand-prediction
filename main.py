@@ -28,10 +28,12 @@ def translate_to_english():
     filepath_test_en = params.test_en_filepath
     if not os.path.isfile(filepath_train_en):
         logger.info('translating train')
-        translate(filepath=params.train_filepath).to_csv(filepath_train_en)
+        translated_df = translate(filepath=params.train_filepath, column_to_translate=cfg.FEATURES_TO_TRANSLATE)
+        translated_df.to_csv(filepath_train_en)
     if not os.path.isfile(filepath_test_en):
         logger.info('translating test')
-        translate(filepath=params.test_filepath).to_csv(filepath_test_en)
+        translated_df = translate(filepath=params.test_filepath, column_to_translate=cfg.FEATURES_TO_TRANSLATE)
+        translated_df.to_csv(filepath_test_en)
 
 
 @action.command()

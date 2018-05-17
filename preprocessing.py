@@ -6,20 +6,16 @@ from googletrans import Translator
 
 translator = Translator()
 
-features_to_translate = ['category_name', 'city', 'description', 'param_1', 'param_2', 'param_3',
-                         'parent_category_name', 'region', 'title']
-
-
-def translate(filepath):
+def translate(filepath, column_to_translate):
 
     df = pd.read_csv(filepath)
 
-    for feature in features_to_translate:
-        translated_col = Parallel(n_jobs=8)(delayed(_translate)(i) for i in df[feature].unique())
-        translated_col = pd.DataFrame(translated_col, columns=[feature, '{}_en'.format(feature)])
-        df = df.merge(translated_col, on=[feature], how='left')
-        df = df.drop(feature, axis=1)
-        df = df.rename(index=str, columns={'{}_en'.format(feature): feature})
+    for column in column_to_translate:
+        translated_col = Parallel(n_jobs=8)(delayed(_translate)(i) for i in df[column].unique())
+        translated_col = pd.DataFrame(translated_col, columns=[column, '{}_en'.format(column)])
+        df = df.merge(translated_col, on=[column], how='left')
+        df = df.drop(column, axis=1)
+        df = df.rename(index=str, columns={'{}_en'.format(column): column})
 
     return df
 
