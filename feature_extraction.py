@@ -272,9 +272,8 @@ class IsMissing(BaseTransformer):
 
 
 class HashingCategoricalEncoder(BaseTransformer):
-    def __init__(self, columns_to_encode):
-        self.columns_to_encode = columns_to_encode
-        self.hashing_encoder = ce.HashingEncoder(columns_to_encode)
+    def __init__(self, **kwargs):
+        self.hashing_encoder = ce.HashingEncoder(**kwargs)
 
     def fit(self, categorical_features, **kwargs):
         self.hashing_encoder.fit(categorical_features)

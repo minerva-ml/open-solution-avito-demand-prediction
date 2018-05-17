@@ -35,6 +35,8 @@ parameters:
 
 # Preprocessing
   target_encoder__n_splits: 10
+  categorical_encoder__n_components: 8
+  categorical_encoder__hash_method: md5
 
 # Light GBM
   lgbm_random_search_runs: 0
