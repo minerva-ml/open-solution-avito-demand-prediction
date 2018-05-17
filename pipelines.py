@@ -181,7 +181,7 @@ def _text_features(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(),
+                             transformer=fe.TextCounter(**config.text_counter),
                              input_steps=[feature_by_type_split],
                              adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
                              cache_dirpath=config.env.cache_dirpath,
@@ -199,7 +199,7 @@ def _text_features(dispatchers, config, train_mode, **kwargs):
     else:
         feature_by_type_split = dispatchers
         text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(),
+                             transformer=fe.TextCounter(**config.text_counter),
                              input_steps=[feature_by_type_split],
                              adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
                              cache_dirpath=config.env.cache_dirpath,

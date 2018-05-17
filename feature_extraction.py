@@ -206,21 +206,20 @@ class BinaryEncoder(BaseTransformer):
 
 class TextCounter(BaseTransformer):
 
-    def __init__(self, text_column=['description']):
+    def __init__(self, text_column):
         self.text_column = text_column
 
     def transform(self, X):
-        for text_column in self.text_column:
-            X = pd.DataFrame(X, columns=[text_column]).astype(str)
-            X = X[text_column].apply(self._transform)
-            X['caps_vs_length'] = X.apply(lambda row: float(row['upper_case_count']) / float(row['char_count']), axis=1)
-            X['num_symbols'] = X[text_column].apply(lambda comment: sum(comment.count(w) for w in '*&$%'))
-            X['num_words'] = X[text_column].apply(lambda comment: len(comment.split()))
-            X['num_unique_words'] = X[text_column].apply(lambda comment: len(set(w for w in comment.split())))
-            X['words_vs_unique'] = X['num_unique_words'] / X['num_words']
-            X['mean_word_len'] = X[text_column].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
-            X.drop(text_column, axis=1, inplace=True)
-            X.fillna(0.0, inplace=True)
+        X = pd.DataFrame(X, columns=[self.text_column]).astype(str)
+        X = X[self.text_column].apply(self._transform)
+        X['caps_vs_length'] = X.apply(lambda row: float(row['upper_case_count']) / float(row['char_count']), axis=1)
+        X['num_symbols'] = X[self.text_column].apply(lambda comment: sum(comment.count(w) for w in '*&$%'))
+        X['num_words'] = X[self.text_column].apply(lambda comment: len(comment.split()))
+        X['num_unique_words'] = X[self.text_column].apply(lambda comment: len(set(w for w in comment.split())))
+        X['words_vs_unique'] = X['num_unique_words'] / X['num_words']
+        X['mean_word_len'] = X[self.text_column].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
+        X.drop(self.text_column, axis=1, inplace=True)
+        X.fillna(0.0, inplace=True)
         return {'numerical_features': X}
 
     def _transform(self, x):

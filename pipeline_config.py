@@ -63,6 +63,8 @@ SOLUTION_CONFIG = AttrDict({
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
 
+    'text_counter': {'text_column': 'description'},
+
     'text_cleaner': {'text_features': ['description', 'title'],
                      'drop_punctuation': True,
                      'all_lower_case': True
