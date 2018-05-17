@@ -24,6 +24,10 @@ parameters:
   test_image_dir:  YOUR/PATH
   experiment_dir:  YOUR/PATH
 
+  train_en_filepath: YOUR/PATH/TO/train_en.csv
+  test_en_filepath: YOUR/PATH/TO/test_en.csv
+  use_english: True
+
 # Validation
   target_bins: 100
   validation_size: 0.2
