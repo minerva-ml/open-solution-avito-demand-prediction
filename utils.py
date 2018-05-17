@@ -48,7 +48,7 @@ def stratified_train_valid_split(meta_train, target_column, target_bins, valid_s
 
 
 def get_logger():
-    return logging.getLogger('talking-data')
+    return logging.getLogger('avito')
 
 
 def create_submission(meta, predictions):
