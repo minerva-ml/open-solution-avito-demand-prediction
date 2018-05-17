@@ -33,7 +33,7 @@ parameters:
   validation_size: 0.2
 
 # Execution
-  overwrite: 1
+  overwrite: 0
   num_workers: 10
   verbose: 1
 

@@ -21,15 +21,13 @@ def main(config, train_mode):
     clipper = Step(name='clipper',
                    transformer=Clipper(**config.clipper),
                    input_steps=[light_gbm],
-                   adapter={'prediction': ([(light_gbm.name, 'prediction')]),
-                            },
+                   adapter={'prediction': ([(light_gbm.name, 'prediction')]), },
                    cache_dirpath=config.env.cache_dirpath)
 
     output = Step(name='output',
                   transformer=Dummy(),
                   input_steps=[clipper],
-                  adapter={'y_pred': ([(clipper.name, 'clipped_prediction')]),
-                           },
+                  adapter={'y_pred': ([(clipper.name, 'clipped_prediction')]), },
                   cache_dirpath=config.env.cache_dirpath)
     return output
 
@@ -42,27 +40,27 @@ def feature_extraction(config, train_mode, **kwargs):
 
         dataframe_features_train, dataframe_features_valid = dataframe_features(
             (feature_by_type_split, feature_by_type_split_valid), config, train_mode, **kwargs)
-        categorical, timestamp, text_features, text_cleaner, prices, group_by, target_encoder = dataframe_features_train
-        categorical_valid, timestamp_valid, text_features_valid, text_cleaner_valid, prices_valid, group_by_valid, \
-        target_encoder_valid = dataframe_features_valid
+        categorical, timestamp, prices, group_by, target_encoder = dataframe_features_train
+        categorical_valid, timestamp_valid, prices_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
+
+        hand_crafted_text, hand_crafted_text_valid = text_features((feature_by_type_split, feature_by_type_split_valid),
+                                                                   config, train_mode, **kwargs)
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[prices,
                                                                                       target_encoder,
                                                                                       group_by,
-                                                                                      text_features],
+                                                                                      hand_crafted_text],
                                                                   numerical_features_valid=[prices_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
-                                                                                            text_features_valid],
+                                                                                            hand_crafted_text_valid],
                                                                   categorical_features=[timestamp,
                                                                                         missing,
                                                                                         categorical,
-                                                                                        text_cleaner,
                                                                                         target_encoder],
                                                                   categorical_features_valid=[timestamp_valid,
                                                                                               missing_valid,
                                                                                               categorical_valid,
-                                                                                              text_cleaner_valid,
                                                                                               target_encoder_valid],
                                                                   config=config, train_mode=train_mode, **kwargs)
         return feature_combiner, feature_combiner_valid
@@ -70,12 +68,14 @@ def feature_extraction(config, train_mode, **kwargs):
         missing = _is_missing_features(config, train_mode, **kwargs)
         feature_by_type_split = _feature_by_type_splits(config, train_mode)
 
-        categorical, timestamp, text_features, text_cleaner, prices, group_by, target_encoder = dataframe_features(
+        categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             feature_by_type_split, config, train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by, text_features],
+        hand_crafted_text = text_features(feature_by_type_split, config, train_mode, **kwargs)
+
+        feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by, hand_crafted_text],
                                           numerical_features_valid=[],
-                                          categorical_features=[timestamp, missing, categorical, text_cleaner, target_encoder],
+                                          categorical_features=[timestamp, missing, categorical, target_encoder],
                                           categorical_features_valid=[],
                                           config=config, train_mode=train_mode, **kwargs)
         return feature_combiner
@@ -93,14 +93,6 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
             (feature_by_type_split, feature_by_type_split_valid),
             config, train_mode, **kwargs)
 
-        text_features, text_features_valid = _text_features(
-            (feature_by_type_split, feature_by_type_split_valid),
-            config, train_mode, **kwargs)
-
-        text_cleaner, text_cleaner_valid = _text_cleaner(
-            (feature_by_type_split, feature_by_type_split_valid),
-            config, train_mode, **kwargs)
-
         price_features, price_features_valid = _price_features(
             (feature_by_type_split, feature_by_type_split_valid),
             config, train_mode, **kwargs)
@@ -112,15 +104,11 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
                                                                 config, train_mode, **kwargs)
         train_features = (encoded_categorical,
                           timestamp_features,
-                          text_features,
-                          text_cleaner,
                           price_features,
                           groupby_aggregation,
                           target_encoder)
         valid_features = (encoded_categorical_valid,
                           timestamp_features_valid,
-                          text_features_valid,
-                          text_cleaner_valid,
                           price_features_valid,
                           groupby_aggregation_valid,
                           target_encoder_valid)
@@ -145,6 +133,22 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
                           groupby_aggregation,
                           target_encoder)
         return train_features
+
+
+def text_features(dispatchers, config, train_mode, **kwargs):
+    if train_mode:
+        feature_by_type_split, feature_by_type_split_valid = dispatchers
+
+        hand_crafted_text_features, hand_crafted_text_features_valid = _text_features(
+            (feature_by_type_split, feature_by_type_split_valid),
+            config, train_mode, **kwargs)
+
+        return hand_crafted_text_features, hand_crafted_text_features_valid
+    else:
+        feature_by_type_split = dispatchers
+        hand_crafted_text_features = _text_features(feature_by_type_split, config, train_mode, **kwargs)
+
+        return hand_crafted_text_features
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):
@@ -183,8 +187,7 @@ def classifier_lgbm(features, config, train_mode, **kwargs):
         light_gbm = Step(name='light_gbm',
                          transformer=LightGBM(**config.light_gbm),
                          input_steps=[features],
-                         adapter={'X': ([(features.name, 'features')]),
-                                  },
+                         adapter={'X': ([(features.name, 'features')]), },
                          cache_dirpath=config.env.cache_dirpath,
                          **kwargs)
     return light_gbm
@@ -195,15 +198,13 @@ def _feature_by_type_splits(config, train_mode):
         feature_by_type_split = Step(name='feature_by_type_split',
                                      transformer=fe.DataFrameByTypeSplitter(**config.dataframe_by_type_splitter),
                                      input_data=['input'],
-                                     adapter={'X': ([('input', 'X')]),
-                                              },
+                                     adapter={'X': ([('input', 'X')]), },
                                      cache_dirpath=config.env.cache_dirpath)
 
         feature_by_type_split_valid = Step(name='feature_by_type_split_valid',
                                            transformer=feature_by_type_split,
                                            input_data=['input'],
-                                           adapter={'X': ([('input', 'X_valid')]),
-                                                    },
+                                           adapter={'X': ([('input', 'X_valid')]), },
                                            cache_dirpath=config.env.cache_dirpath)
 
         return feature_by_type_split, feature_by_type_split_valid
@@ -212,8 +213,7 @@ def _feature_by_type_splits(config, train_mode):
         feature_by_type_split = Step(name='feature_by_type_split',
                                      transformer=fe.DataFrameByTypeSplitter(**config.dataframe_by_type_splitter),
                                      input_data=['input'],
-                                     adapter={'X': ([('input', 'X')]),
-                                              },
+                                     adapter={'X': ([('input', 'X')]), },
                                      cache_dirpath=config.env.cache_dirpath)
 
         return feature_by_type_split
@@ -348,37 +348,6 @@ def _text_features(dispatchers, config, train_mode, **kwargs):
                              **kwargs)
 
         return text_features
-
-
-def _text_cleaner(dispatchers, config, train_mode, **kwargs):
-    if train_mode:
-        feature_by_type_split, feature_by_type_split_valid = dispatchers
-        text_cleaner = Step(name='text_cleaner',
-                            transformer=fe.TextCleaner(**config.text_cleaner),
-                            input_steps=[feature_by_type_split],
-                            adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
-                            cache_dirpath=config.env.cache_dirpath,
-                            **kwargs)
-
-        text_cleaner_valid = Step(name='text_cleaner_valid',
-                                  transformer=text_cleaner,
-                                  input_steps=[feature_by_type_split_valid],
-                                  adapter={'X': ([(feature_by_type_split_valid.name, 'categorical_features')])},
-                                  cache_dirpath=config.env.cache_dirpath,
-                                  **kwargs)
-
-        return text_cleaner, text_cleaner_valid
-
-    else:
-        feature_by_type_split = dispatchers
-        text_cleaner = Step(name='text_cleaner',
-                            transformer=fe.TextCleaner(**config.text_cleaner),
-                            input_steps=[feature_by_type_split],
-                            adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
-                            cache_dirpath=config.env.cache_dirpath,
-                            **kwargs)
-
-        return text_cleaner
 
 
 def _price_features(dispatchers, config, train_mode, **kwargs):
