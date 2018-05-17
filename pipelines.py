@@ -228,7 +228,7 @@ def _encode_categorical(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.CategoricalEncoder(**config.categorical_encoder),
+                                   transformer=fe.HashingCategoricalEncoder(**config.categorical_encoder),
                                    input_steps=[feature_by_type_split],
                                    adapter={
                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
@@ -250,7 +250,7 @@ def _encode_categorical(dispatchers, config, train_mode, **kwargs):
     else:
         feature_by_type_split = dispatchers
         categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.CategoricalEncoder(**config.categorical_encoder),
+                                   transformer=fe.HashingCategoricalEncoder(**config.categorical_encoder),
                                    input_steps=[feature_by_type_split],
                                    adapter={
                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
