@@ -55,7 +55,7 @@ parameters:
   lgbm__min_child_samples: '[0, 50]'
   lgbm__max_bin: '[100, 500]'
   lgbm__subsample: '[0.5, 1.0, "uniform"]'
-  lgbm__subsample_freq: '[0, 10]'
+  lgbm__subsample_freq: 1
   lgbm__colsample_bytree: '[0.1, 1.0, "uniform"]'
   lgbm__min_child_weight: '[0, 10]'
   lgbm__reg_lambda: '[1e-9, 1000.0, "log-uniform"]'

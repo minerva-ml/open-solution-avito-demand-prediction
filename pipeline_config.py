@@ -36,7 +36,7 @@ USER_ID_COLUMN = ['user_id']
 FEATURES_TO_TRANSLATE = ['category_name', 'city', 'description', 'param_1', 'param_2', 'param_3',
                          'parent_category_name', 'region', 'title']
 
-DEV_SAMPLE_SIZE = int(10e2)
+DEV_SAMPLE_SIZE = int(10e3)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',

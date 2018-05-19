@@ -55,7 +55,7 @@ parameters:
   lgbm__min_child_samples: 44
   lgbm__max_bin: 379
   lgbm__subsample: 0.82
-  lgbm__subsample_freq: 2
+  lgbm__subsample_freq: 1
   lgbm__colsample_bytree: 0.27
   lgbm__min_child_weight: 4
   lgbm__reg_lambda: 0.0

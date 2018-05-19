@@ -40,7 +40,6 @@ class FeatureJoiner(BaseTransformer):
         features = numerical_feature_list + categorical_feature_list
         for feature in features:
             feature.reset_index(drop=True, inplace=True)
-
         outputs = {}
         outputs['features'] = pd.concat(features, axis=1).astype(np.float32)
         outputs['feature_names'] = self._get_feature_names(features)
