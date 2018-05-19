@@ -82,13 +82,13 @@ def feature_extraction(config, train_mode, **kwargs):
         return feature_combiner
 
 
-def image_model(config, train_mode):
+def image_model(config):
     """ Pipeline predicting the 'parent_category_name, category_name' based on images
     """
 
     non_nan_subset = Step(name='non_nan_subset',
                           transformer=fe.SubsetNotNan(**config.subset_not_nan_image),
-                          input_data=['input'],
+                          input_data=['input_image'],
                           cache_dirpath=config.env.cache_dirpath)
 
     image_column = Step(name='image_column',
@@ -103,93 +103,42 @@ def image_model(config, train_mode):
                                         },
                                cache_dirpath=config.env.cache_dirpath)
 
-    if train_mode:
-
-        non_nan_subset_valid = Step(name='non_nan_subset_valid',
-                                    transformer=non_nan_subset,
-                                    input_data=['input'],
-                                    cache_dirpath=config.env.cache_dirpath)
-
-        image_column_valid = Step(name='image_column_valid',
-                                  transformer=image_column,
-                                  input_steps=[non_nan_subset_valid],
-                                  cache_dirpath=config.env.cache_dirpath)
-
-        label_encoder_image_valid = Step(name='label_encoder_image_valid',
-                                         transformer=label_encoder_image,
-                                         input_steps=[non_nan_subset_valid],
-                                         adapter={'categorical_features': ([(non_nan_subset_valid.name, 'y')]),
-                                                  },
-                                         cache_dirpath=config.env.cache_dirpath)
-
-        loader = Step(name='loader',
-                      transformer=MultiOutputImageLoader(**config.loader),
-                      input_data=['specs'],
-                      input_steps=[image_column, label_encoder_image,
-                                   image_column_valid, label_encoder_image_valid],
-                      adapter={'X': ([(image_column.name, 'X')]),
-                               'y': ([(label_encoder_image.name, 'categorical_features')]),
-                               'image_dir': ([('specs', 'image_dir')]),
-                               'X_valid': ([(image_column_valid.name, 'X')]),
-                               'y_valid': ([(label_encoder_image_valid.name, 'categorical_features')]),
-                               },
-                      cache_dirpath=config.env.cache_dirpath)
-
-        inception_resnet = Step(name='inception_resnet',
-                                transformer=HierarchicalInceptionResnet(**config.inception_resnet),
-                                input_steps=[loader],
+    non_nan_subset_valid = Step(name='non_nan_subset_valid',
+                                transformer=non_nan_subset,
+                                input_data=['input_image'],
                                 cache_dirpath=config.env.cache_dirpath)
 
-        loader_valid = Step(name='loader_valid',
-                            transformer=loader,
-                            input_data=['specs'],
-                            input_steps=[image_column_valid, label_encoder_image_valid],
-                            adapter={'X': ([(image_column.name, 'X')]),
-                                     'y': ([(label_encoder_image.name, 'categorical_features')]),
-                                     'image_dir': ([('specs', 'image_dir')]),
-                                     },
+    image_column_valid = Step(name='image_column_valid',
+                              transformer=image_column,
+                              input_steps=[non_nan_subset_valid],
+                              cache_dirpath=config.env.cache_dirpath)
+
+    label_encoder_image_valid = Step(name='label_encoder_image_valid',
+                                     transformer=label_encoder_image,
+                                     input_steps=[non_nan_subset_valid],
+                                     adapter={'categorical_features': ([(non_nan_subset_valid.name, 'y')]),
+                                              },
+                                     cache_dirpath=config.env.cache_dirpath)
+
+    loader = Step(name='loader',
+                  transformer=MultiOutputImageLoader(**config.loader),
+                  input_data=['input_image'],
+                  input_steps=[image_column, label_encoder_image,
+                               image_column_valid, label_encoder_image_valid],
+                  adapter={'X': ([(image_column.name, 'X')]),
+                           'y': ([(label_encoder_image.name, 'categorical_features')]),
+                           'image_dir': ([('input_image', 'image_dir')]),
+                           'X_valid': ([(image_column_valid.name, 'X')]),
+                           'y_valid': ([(label_encoder_image_valid.name, 'categorical_features')]),
+                           },
+                  cache_dirpath=config.env.cache_dirpath)
+
+    inception_resnet = Step(name='inception_resnet',
+                            transformer=HierarchicalInceptionResnet(**config.inception_resnet),
+                            input_steps=[loader],
                             cache_dirpath=config.env.cache_dirpath)
 
-        inception_resnet_valid = Step(name='inception_resnet_valid',
-                                      transformer=inception_resnet,
-                                      input_steps=[loader_valid],
-                                      cache_dirpath=config.env.cache_dirpath)
-
-        joined_image_predictions = Step(name='joined_image_predictions',
-                                        transformer=fe.JoinWithNan(),
-                                        input_steps=[inception_resnet, non_nan_subset],
-                                        cache_dirpath=config.env.cache_dirpath)
-
-        joined_image_predictions_valid = Step(name='joined_image_predictions_valid',
-                                              transformer=joined_image_predictions,
-                                              input_steps=[inception_resnet_valid, non_nan_subset_valid],
-                                              cache_dirpath=config.env.cache_dirpath)
-
-        return joined_image_predictions, joined_image_predictions_valid
-
-    else:
-
-        loader = Step(name='loader',
-                      transformer=MultiOutputImageLoader(**config.loader),
-                      input_data=['specs'],
-                      input_steps=[image_column, label_encoder_image],
-                      adapter={'X': ([(image_column.name, 'X')]),
-                               'y': ([(label_encoder_image.name, 'categorical_features')]),
-                               'image_dir': ([('specs', 'image_dir')]),
-                               },
-                      cache_dirpath=config.env.cache_dirpath)
-
-        inception_resnet = Step(name='inception_resnet',
-                                transformer=HierarchicalInceptionResnet(**config.inception_resnet),
-                                input_steps=[loader],
-                                cache_dirpath=config.env.cache_dirpath)
-
-        joined_image_predictions = Step(name='joined_image_predictions',
-                                        transformer=fe.JoinWithNan(),
-                                        input_steps=[inception_resnet, non_nan_subset],
-                                        cache_dirpath=config.env.cache_dirpath)
-
-        return joined_image_predictions
+    return inception_resnet
 
 
 def dataframe_features(dispatchers, config, train_mode, **kwargs):
@@ -621,6 +570,5 @@ def _join_features(numerical_features, numerical_features_valid,
 
 PIPELINES = {'main': {'train': partial(main, train_mode=True),
                       'inference': partial(main, train_mode=False)},
-             'image_features': {'train': partial(image_features, train_mode=True),
-                                'inference': partial(image_features, train_mode=False)},
+             'image_model': {'train': image_model},
              }

@@ -88,6 +88,7 @@ def _train(pipeline_name, dev_mode):
                             'y': meta_train_split[cfg.IMAGE_TARGET_COLUMNS],
                             'X_valid': meta_valid_split[cfg.IMAGE_COLUMNS],
                             'y_valid': meta_valid_split[cfg.IMAGE_TARGET_COLUMNS],
+                            'image_dir': params.train_image_dir
                             },
             }
 

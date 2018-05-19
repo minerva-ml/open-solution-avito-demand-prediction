@@ -86,7 +86,6 @@ class PandasIterator(Iterator):
     def _get_batches_of_transformed_samples(self, index_array):
         batch_x = np.zeros((len(index_array),) + self.image_shape, dtype=K.floatx())
         batch_y_id = self.y[index_array]
-        print('Unique classes in batch', [np.unique(batch_y_id[:, i]).shape for i in range(2)])
         batch_y = []
         for i, num_classes in enumerate(self.num_classes):
             batch_y_level = to_categorical(batch_y_id[:, i], num_classes=num_classes)

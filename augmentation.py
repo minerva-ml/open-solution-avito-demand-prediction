@@ -1,5 +1,6 @@
 from imgaug import augmenters as iaa
 import numpy as np
+from keras.applications.inception_resnet_v2 import preprocess_input
 
 import pipeline_config as cfg
 
@@ -23,7 +24,6 @@ def fast_seq(with_augmentation):
 def fast_augmentation(image, with_augmentation):
     seq = fast_seq(with_augmentation)
     image = image.astype(np.uint8)
-
     augmented = seq.augment_image(image).astype(np.float64)
-    augmented /= 255.
+    augmented = np.squeeze(preprocess_input(np.expand_dims(augmented, axis=0)), axis=0)
     return augmented

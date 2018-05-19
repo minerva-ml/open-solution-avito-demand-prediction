@@ -103,6 +103,11 @@ SOLUTION_CONFIG = AttrDict({
                                    'timestamp_columns': TIMESTAMP_COLUMNS,
                                    },
 
+    'fetch_image_columns': {'columns': IMAGE_COLUMNS},
+    'subset_not_nan_image': {'nan_column': IMAGE_COLUMNS},
+    'join_with_nan': {'index_column': ITEM_ID_COLUMN},
+    'label_encoder_image': {'columns_to_encode': IMAGE_TARGET_COLUMNS},
+
     'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
     'is_missing': {'columns': FEATURE_COLUMNS},
     'categorical_encoder': {'cols': CATEGORICAL_COLUMNS,
@@ -122,6 +127,40 @@ SOLUTION_CONFIG = AttrDict({
 
     'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
                        },
+
+    'loader': {'loader_params': {'training': {'batch_size': params.batch_size_train,
+                                              'shuffle': True,
+                                              'num_classes': safe_eval(params.num_classes),
+                                              'target_size': safe_eval(params.target_size),
+                                              },
+                                 'inference': {'batch_size': params.batch_size_inference,
+                                               'shuffle': False,
+                                               'num_classes': safe_eval(params.num_classes),
+                                               'target_size': safe_eval(params.target_size),
+                                               },
+                                 }
+               },
+
+    'inception_resnet': {'architecture_config': {'num_classes': safe_eval(params.num_classes),
+                                                 'target_size': safe_eval(params.target_size),
+                                                 'loss_weights': [0.5, 0.5],
+                                                 'trainable_threshold': -1,
+                                                 'lr': params.lr,
+                                                 },
+                         'training_config': {'epochs': params.epochs,
+                                             'workers': params.num_workers
+                                             },
+                         'callbacks_config': {'lr_scheduler': {'gamma': params.lr_gamma},
+                                              'model_checkpoint': {'filepath': os.path.join(params.experiment_dir,
+                                                                                            'checkpoints',
+                                                                                            'inception_resnet',
+                                                                                            'best_model.h5'),
+                                                                   'save_best_only': True,
+                                                                   'save_weights_only': False},
+                                              'early_stopping': {'patience': params.patience},
+                                              'neptune_monitor': {'model_name': 'inception_resnet'}
+                                              }
+                         },
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),
