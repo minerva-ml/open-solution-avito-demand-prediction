@@ -60,3 +60,4 @@ parameters:
   lgbm__min_child_weight: 4
   lgbm__reg_lambda: 0.0
   lgbm__reg_alpha: 0.1
+  lgbm__scale_pos_weight: 1

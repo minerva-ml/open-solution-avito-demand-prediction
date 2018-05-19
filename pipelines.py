@@ -68,7 +68,7 @@ def feature_extraction(config, train_mode, **kwargs):
         missing = _is_missing_features(config, train_mode, **kwargs)
         feature_by_type_split = _feature_by_type_splits(config, train_mode)
 
-        categorical, timestamp, text_features, text_cleaner, prices, group_by, target_encoder = dataframe_features(
+        categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             feature_by_type_split, config, train_mode, **kwargs)
 
         hand_crafted_text = text_features(feature_by_type_split, config, train_mode, **kwargs)
