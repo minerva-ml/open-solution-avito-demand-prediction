@@ -118,8 +118,6 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
 
         encoded_categorical = _encode_categorical(feature_by_type_split, config, train_mode, **kwargs)
         timestamp_features = _timestamp_features(feature_by_type_split, config, train_mode, **kwargs)
-        text_features = _text_features(feature_by_type_split, config, train_mode, **kwargs)
-        text_cleaner = _text_cleaner(feature_by_type_split, config, train_mode, **kwargs)
         price_features = _price_features(feature_by_type_split, config, train_mode, **kwargs)
         groupby_aggregation = _groupby_aggregations(feature_by_type_split, timestamp_features,
                                                     config, train_mode, **kwargs)
@@ -127,8 +125,6 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
 
         train_features = (encoded_categorical,
                           timestamp_features,
-                          text_features,
-                          text_cleaner,
                           price_features,
                           groupby_aggregation,
                           target_encoder)
