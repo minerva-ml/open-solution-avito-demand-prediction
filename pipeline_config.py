@@ -28,6 +28,7 @@ CATEGORICAL_COLUMNS = ['user_id',
 NUMERICAL_COLUMNS = ['price', 'item_seq_number']
 TEXT_COLUMNS = ['title', 'description']
 IMAGE_COLUMNS = ['image']
+IMAGE_TARGET_COLUMNS = ['parent_category_name', 'category_name']
 TARGET_COLUMNS = ['deal_probability']
 CV_COLUMN = ['user_id']
 TIMESTAMP_COLUMNS = ['activation_date']

@@ -84,6 +84,11 @@ def _train(pipeline_name, dev_mode):
                       'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y_valid': meta_valid_split[cfg.TARGET_COLUMNS],
                       },
+            'input_image': {'X': meta_train_split[cfg.IMAGE_COLUMNS],
+                            'y': meta_train_split[cfg.IMAGE_TARGET_COLUMNS],
+                            'X_valid': meta_valid_split[cfg.IMAGE_COLUMNS],
+                            'y_valid': meta_valid_split[cfg.IMAGE_TARGET_COLUMNS],
+                            },
             }
 
     pipeline = PIPELINES[pipeline_name]['train'](cfg.SOLUTION_CONFIG)
