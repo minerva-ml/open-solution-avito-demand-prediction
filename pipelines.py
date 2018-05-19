@@ -40,17 +40,17 @@ def feature_extraction(config, train_mode, **kwargs):
 
         dataframe_features_train, dataframe_features_valid = dataframe_features(
             (feature_by_type_split, feature_by_type_split_valid), config, train_mode, **kwargs)
-        categorical, timestamp, prices, group_by, target_encoder = dataframe_features_train
-        categorical_valid, timestamp_valid, prices_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
+        categorical, timestamp, numerical, group_by, target_encoder = dataframe_features_train
+        categorical_valid, timestamp_valid, numerical_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
         hand_crafted_text, hand_crafted_text_valid = text_features((feature_by_type_split, feature_by_type_split_valid),
                                                                    config, train_mode, **kwargs)
 
-        feature_combiner, feature_combiner_valid = _join_features(numerical_features=[prices,
+        feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
                                                                                       group_by,
                                                                                       hand_crafted_text],
-                                                                  numerical_features_valid=[prices_valid,
+                                                                  numerical_features_valid=[numerical_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
                                                                                             hand_crafted_text_valid],
@@ -93,7 +93,7 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
             (feature_by_type_split, feature_by_type_split_valid),
             config, train_mode, **kwargs)
 
-        price_features, price_features_valid = _price_features(
+        numerical_features, numerical_features_valid = _numerical_features(
             (feature_by_type_split, feature_by_type_split_valid),
             config, train_mode, **kwargs)
 
@@ -104,12 +104,12 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
                                                                 config, train_mode, **kwargs)
         train_features = (encoded_categorical,
                           timestamp_features,
-                          price_features,
+                          numerical_features,
                           groupby_aggregation,
                           target_encoder)
         valid_features = (encoded_categorical_valid,
                           timestamp_features_valid,
-                          price_features_valid,
+                          numerical_features_valid,
                           groupby_aggregation_valid,
                           target_encoder_valid)
         return train_features, valid_features
@@ -118,14 +118,14 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
 
         encoded_categorical = _encode_categorical(feature_by_type_split, config, train_mode, **kwargs)
         timestamp_features = _timestamp_features(feature_by_type_split, config, train_mode, **kwargs)
-        price_features = _price_features(feature_by_type_split, config, train_mode, **kwargs)
+        numerical_features = _numerical_features(feature_by_type_split, config, train_mode, **kwargs)
         groupby_aggregation = _groupby_aggregations(feature_by_type_split, timestamp_features,
                                                     config, train_mode, **kwargs)
         target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
 
         train_features = (encoded_categorical,
                           timestamp_features,
-                          price_features,
+                          numerical_features,
                           groupby_aggregation,
                           target_encoder)
         return train_features
@@ -134,17 +134,32 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
 def text_features(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
+        text_features = Step(name='text_features',
+                             transformer=fe.TextCounter(**config.text_counter),
+                             input_steps=[feature_by_type_split],
+                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
+                             cache_dirpath=config.env.cache_dirpath,
+                             **kwargs)
 
-        hand_crafted_text_features, hand_crafted_text_features_valid = _text_features(
-            (feature_by_type_split, feature_by_type_split_valid),
-            config, train_mode, **kwargs)
+        text_features_valid = Step(name='text_features_valid',
+                                   transformer=text_features,
+                                   input_steps=[feature_by_type_split_valid],
+                                   adapter={'X': ([(feature_by_type_split_valid.name, 'categorical_features')])},
+                                   cache_dirpath=config.env.cache_dirpath,
+                                   **kwargs)
 
-        return hand_crafted_text_features, hand_crafted_text_features_valid
+        return text_features, text_features_valid
+
     else:
         feature_by_type_split = dispatchers
-        hand_crafted_text_features = _text_features(feature_by_type_split, config, train_mode, **kwargs)
+        text_features = Step(name='text_features',
+                             transformer=fe.TextCounter(**config.text_counter),
+                             input_steps=[feature_by_type_split],
+                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
+                             cache_dirpath=config.env.cache_dirpath,
+                             **kwargs)
 
-        return hand_crafted_text_features
+        return text_features
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):
@@ -315,72 +330,41 @@ def _timestamp_features(dispatchers, config, train_mode, **kwargs):
         return timestamp_features
 
 
-def _text_features(dispatchers, config, train_mode, **kwargs):
+def _numerical_features(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
-        text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(**config.text_counter),
-                             input_steps=[feature_by_type_split],
-                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
-                             cache_dirpath=config.env.cache_dirpath,
-                             **kwargs)
+        numerical_features = Step(name='numerical_features',
+                                  transformer=Dummy(),
+                                  input_steps=[feature_by_type_split],
+                                  adapter={
+                                      'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
+                                  },
+                                  cache_dirpath=config.env.cache_dirpath,
+                                  **kwargs)
 
-        text_features_valid = Step(name='text_features_valid',
-                                   transformer=text_features,
-                                   input_steps=[feature_by_type_split_valid],
-                                   adapter={'X': ([(feature_by_type_split_valid.name, 'categorical_features')])},
-                                   cache_dirpath=config.env.cache_dirpath,
-                                   **kwargs)
+        numerical_features_valid = Step(name='numerical_features_valid',
+                                        transformer=numerical_features,
+                                        input_steps=[feature_by_type_split_valid],
+                                        adapter={'numerical_features': (
+                                            [(feature_by_type_split_valid.name, 'numerical_features')])
+                                        },
+                                        cache_dirpath=config.env.cache_dirpath,
+                                        **kwargs)
 
-        return text_features, text_features_valid
+        return numerical_features, numerical_features_valid
 
     else:
         feature_by_type_split = dispatchers
-        text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(**config.text_counter),
-                             input_steps=[feature_by_type_split],
-                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
-                             cache_dirpath=config.env.cache_dirpath,
-                             **kwargs)
+        numerical_features = Step(name='numerical_features',
+                                  transformer=Dummy(),
+                                  input_steps=[feature_by_type_split],
+                                  adapter={
+                                      'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
+                                  },
+                                  cache_dirpath=config.env.cache_dirpath,
+                                  **kwargs)
 
-        return text_features
-
-
-def _price_features(dispatchers, config, train_mode, **kwargs):
-    if train_mode:
-        feature_by_type_split, feature_by_type_split_valid = dispatchers
-        price_features = Step(name='price_features',
-                              transformer=Dummy(),
-                              input_steps=[feature_by_type_split],
-                              adapter={
-                                  'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
-                              },
-                              cache_dirpath=config.env.cache_dirpath,
-                              **kwargs)
-
-        price_features_valid = Step(name='price_features_valid',
-                                    transformer=price_features,
-                                    input_steps=[feature_by_type_split_valid],
-                                    adapter={'numerical_features': (
-                                        [(feature_by_type_split_valid.name, 'numerical_features')])
-                                    },
-                                    cache_dirpath=config.env.cache_dirpath,
-                                    **kwargs)
-
-        return price_features, price_features_valid
-
-    else:
-        feature_by_type_split = dispatchers
-        price_features = Step(name='price_features',
-                              transformer=Dummy(),
-                              input_steps=[feature_by_type_split],
-                              adapter={
-                                  'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
-                              },
-                              cache_dirpath=config.env.cache_dirpath,
-                              **kwargs)
-
-        return price_features
+        return numerical_features
 
 
 def _target_encoders(dispatchers, config, train_mode, **kwargs):

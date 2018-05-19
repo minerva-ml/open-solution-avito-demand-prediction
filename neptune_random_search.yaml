@@ -43,20 +43,21 @@ parameters:
   categorical_encoder__hash_method: md5
 
 # Light GBM
-  lgbm_random_search_runs: 100
+  lgbm_random_search_runs: 500
   lgbm__boosting_type: gbdt
   lgbm__objective: regression
   lgbm__metric: RMSE
-  lgbm__number_boosting_rounds: 100
-  lgbm__early_stopping_rounds: 10
+  lgbm__number_boosting_rounds: 500
+  lgbm__early_stopping_rounds: 50
   lgbm__learning_rate: '[0.01, 1.0, "log-uniform"]'
   lgbm__num_leaves: '[1, 100]'
-  lgbm__max_depth: '[0, 15]'
+  lgbm__max_depth: '[1, 50]'
   lgbm__min_child_samples: '[0, 50]'
   lgbm__max_bin: '[100, 500]'
-  lgbm__subsample: '[0.6, 1.0, "uniform"]'
+  lgbm__subsample: '[0.5, 1.0, "uniform"]'
   lgbm__subsample_freq: '[0, 10]'
   lgbm__colsample_bytree: '[0.1, 1.0, "uniform"]'
   lgbm__min_child_weight: '[0, 10]'
-  lgbm__reg_lambda: 0
+  lgbm__reg_lambda: '[1e-9, 1000.0, "log-uniform"]'
   lgbm__reg_alpha: '[1e-9, 1.0, "log-uniform"]'
+  lgbm__scale_pos_weight: '[1e-6, 500.0, "log-uniform"]'
