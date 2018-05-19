@@ -18,10 +18,15 @@ exclude:
 
 parameters:
 # Data
-  train_filepath: YOUR/PATH/TO/train.csv
-  test_filepath: YOUR/PATH/TO/test.csv
-  image_dir: YOUR/PATH/TO/IMAGES/data
-  experiment_dir: YOUR/PATH/TO/EXPERIMENTS/solution_1
+  train_filepath: YOUR/PATH
+  test_filepath:  YOUR/PATH
+  train_image_dir:  YOUR/PATH
+  test_image_dir:  YOUR/PATH
+  experiment_dir:  YOUR/PATH
+
+  train_en_filepath: YOUR/PATH/TO/train_en.csv
+  test_en_filepath: YOUR/PATH/TO/test_en.csv
+  use_english: True
 
 # Validation
   target_bins: 100
@@ -34,6 +39,8 @@ parameters:
 
 # Preprocessing
   target_encoder__n_splits: 10
+  categorical_encoder__n_components: 8
+  categorical_encoder__hash_method: md5
 
 # Light GBM
   lgbm_random_search_runs: 0
@@ -48,8 +55,9 @@ parameters:
   lgbm__min_child_samples: 44
   lgbm__max_bin: 379
   lgbm__subsample: 0.82
-  lgbm__subsample_freq: 2
+  lgbm__subsample_freq: 1
   lgbm__colsample_bytree: 0.27
   lgbm__min_child_weight: 4
   lgbm__reg_lambda: 0.0
   lgbm__reg_alpha: 0.1
+  lgbm__scale_pos_weight: 1

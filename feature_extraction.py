@@ -1,8 +1,11 @@
+import re
+import string
+
 import category_encoders as ce
 import numpy as np
 import pandas as pd
-from sklearn.externals import joblib
 from sklearn.model_selection import KFold
+from sklearn.externals import joblib
 from sklearn import preprocessing as prep
 
 from steps.base import BaseTransformer
@@ -103,7 +106,6 @@ class FeatureJoiner(BaseTransformer):
         features = numerical_feature_list + categorical_feature_list
         for feature in features:
             feature.reset_index(drop=True, inplace=True)
-
         outputs = {}
         outputs['features'] = pd.concat(features, axis=1).astype(np.float32)
         outputs['feature_names'] = self._get_feature_names(features)
@@ -113,7 +115,12 @@ class FeatureJoiner(BaseTransformer):
     def _get_feature_names(self, dataframes):
         feature_names = []
         for dataframe in dataframes:
-            feature_names.extend(list(dataframe.columns))
+            try:
+                feature_names.extend(list(dataframe.columns))
+            except Exception as e:
+                print(e)
+                feature_names.append(dataframe.name)
+
         return feature_names
 
 
@@ -189,7 +196,7 @@ class TargetEncoderNSplits(BaseTransformer):
         return confidence_rate_names
 
     def _is_null_names(self, columns):
-        is_null_names = ['target_mean_is_nan_{}'.format(column) for column in columns]
+        is_null_names = ['target_mean_is_missing_{}'.format(column) for column in columns]
         return is_null_names
 
     def fit(self, categorical_features, target, **kwargs):
@@ -263,6 +270,63 @@ class BinaryEncoder(BaseTransformer):
         joblib.dump(self.target_encoder, filepath)
 
 
+class TextCounter(BaseTransformer):
+
+    def __init__(self, text_column):
+        self.text_column = text_column
+
+    def transform(self, X):
+        X = pd.DataFrame(X, columns=[self.text_column]).astype(str)
+        X = X[self.text_column].apply(self._transform)
+        X['caps_vs_length'] = X.apply(lambda row: float(row['upper_case_count']) / float(row['char_count']), axis=1)
+        X['num_symbols'] = X[self.text_column].apply(lambda comment: sum(comment.count(w) for w in '*&$%'))
+        X['num_words'] = X[self.text_column].apply(lambda comment: len(comment.split()))
+        X['num_unique_words'] = X[self.text_column].apply(lambda comment: len(set(w for w in comment.split())))
+        X['words_vs_unique'] = X['num_unique_words'] / X['num_words']
+        X['mean_word_len'] = X[self.text_column].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
+        X.drop(self.text_column, axis=1, inplace=True)
+        X.fillna(0.0, inplace=True)
+        return {'numerical_features': X}
+
+    def _transform(self, x):
+        features = {}
+        features['description'] = x
+        features['char_count'] = len(x)
+        features['word_count'] = len(x.split())
+        features['punctuation_count'] = sum([1 for i in x if i in string.punctuation])
+        features['upper_case_count'] = sum(c.isupper() for c in x)
+        features['lower_case_count'] = sum(c.islower() for c in x)
+        features['digit_count'] = sum(c.isdigit() for c in x)
+        features['space_count'] = sum(c.isspace() for c in x)
+        features['newline_count'] = x.count('\n')
+        return pd.Series(features)
+
+
+class TextCleaner(BaseTransformer):
+    def __init__(self, text_features, drop_punctuation, all_lower_case):
+        self.text_features = text_features
+        self.drop_punctuation = drop_punctuation
+        self.all_lower_case = all_lower_case
+
+    @property
+    def text_cleaner_names(self):
+        text_cleaner_names = ['{}_clean'.format(feature) for feature in self.text_features]
+        return text_cleaner_names
+
+    def transform(self, X):
+        X = pd.DataFrame(X, columns=self.text_features).astype(str)
+        for feature, text_cleaner_name in zip(self.text_features, self.text_cleaner_names):
+            X[text_cleaner_name] = X[feature].apply(self._transform)
+        return {'categorical_features': X[self.text_cleaner_names]}
+
+    def _transform(self, x):
+        if self.all_lower_case:
+            x = x.lower()
+        if self.drop_punctuation:
+            x = re.sub(r'[^\w\s]', ' ', x)
+        return x
+
+
 class TimeDelta(BaseTransformer):
     def __init__(self, groupby_specs, timestamp_column):
         self.groupby_specs = groupby_specs
@@ -276,7 +340,7 @@ class TimeDelta(BaseTransformer):
 
     @property
     def is_null_names(self):
-        is_null_names = ['time_delta_is_nan_{}'.format('_'.join(groupby_spec))
+        is_null_names = ['time_delta_is_missing_{}'.format('_'.join(groupby_spec))
                          for groupby_spec in self.groupby_specs]
         return is_null_names
 
@@ -312,6 +376,7 @@ class GroupbyAggregations(BaseTransformer):
 
     def transform(self, categorical_features):
         for spec, groupby_aggregations_name in zip(self.groupby_aggregations, self.groupby_aggregations_names):
+            logger.info('processing {}'.format(groupby_aggregations_name))
             group_object = categorical_features.groupby(spec['groupby'])
 
             categorical_features = categorical_features.merge(
@@ -320,6 +385,94 @@ class GroupbyAggregations(BaseTransformer):
                 on=spec['groupby'], how='left')
 
         return {'numerical_features': categorical_features[self.groupby_aggregations_names].astype(np.float32)}
+
+
+class IsMissing(BaseTransformer):
+    def __init__(self, columns):
+        self.columns = columns
+
+    @property
+    def missing_names(self):
+        return ['{}_is_missing'.format(col) for col in self.columns]
+
+    def transform(self, X, **kwargs):
+        for name, missing_name in zip(self.columns, self.missing_names):
+            X[missing_name] = pd.isnull(X[name]).astype(int)
+        return {'categorical_features': X[self.missing_names]}
+
+
+class HashingCategoricalEncoder(BaseTransformer):
+    def __init__(self, **kwargs):
+        self.hashing_encoder = ce.HashingEncoder(**kwargs)
+
+    def fit(self, categorical_features, **kwargs):
+        self.hashing_encoder.fit(categorical_features)
+        return self
+
+    def transform(self, categorical_features, **kwargs):
+        categorical_features = self.hashing_encoder.transform(categorical_features)
+        return {'categorical_features': categorical_features}
+
+    def load(self, filepath):
+        self.hashing_encoder = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.hashing_encoder, filepath)
+
+
+class CategoricalEncoder(BaseTransformer):
+    def __init__(self, columns_to_encode):
+        self.columns_to_encode = columns_to_encode
+        self.columns_with_encoders = [(col_name, prep.LabelEncoder()) for col_name in columns_to_encode]
+
+    def fit(self, categorical_features, **kwargs):
+        for column_name, encoder in self.columns_with_encoders:
+            logger.info('fitting {}'.format(column_name))
+            encoder.fit(categorical_features[column_name].astype(str).values)
+        return self
+
+    def transform(self, categorical_features, **kwargs):
+        for column_name, encoder in self.columns_with_encoders:
+            logger.info('transforming {}'.format(column_name))
+            categorical_features[column_name], encoder = self._input_unknown(categorical_features[column_name], encoder)
+            categorical_features[column_name] = encoder.transform(categorical_features[column_name].astype(str).values)
+        return {'categorical_features': categorical_features}
+
+    def _input_unknown(self, column, encoder):
+        def func(x):
+            return '<unknown>' if x not in encoder.classes_ else x
+
+        column = column.apply(func)
+        encoder.classes_ = np.append(encoder.classes_, '<unknown>')
+        return column, encoder
+
+    def load(self, filepath):
+        self.columns_with_encoders = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.columns_with_encoders, filepath)
+
+
+class DateFeatures(BaseTransformer):
+    def __init__(self, date_column):
+        self.date_column = date_column
+
+    @property
+    def date_features_names(self):
+        date_features_names = ['{}_month'.format(self.date_column),
+                               '{}_day'.format(self.date_column),
+                               '{}_weekday'.format(self.date_column),
+                               ]
+        return date_features_names
+
+    def transform(self, timestamp_features, **kwargs):
+        date_index = pd.DatetimeIndex(timestamp_features[self.date_column])
+        timestamp_features['{}_month'.format(self.date_column)] = date_index.month
+        timestamp_features['{}_day'.format(self.date_column)] = date_index.day
+        timestamp_features['{}_weekday'.format(self.date_column)] = date_index.weekday
+        return {'categorical_features': timestamp_features[self.date_features_names].astype(int)}
 
 
 class Blacklist(BaseTransformer):
