@@ -37,15 +37,14 @@ def feature_extraction(config, train_mode, **kwargs):
     if train_mode:
 
         missing, missing_valid = _is_missing_features(config, train_mode, **kwargs)
-        feature_by_type_split, feature_by_type_split_valid = _feature_by_type_splits(config, train_mode)
+        feature_by_type_split, feature_by_type_split_valid = _feature_by_type_splits(config, train_mode, **kwargs)
 
         dataframe_features_train, dataframe_features_valid = dataframe_features(
             (feature_by_type_split, feature_by_type_split_valid), config, train_mode, **kwargs)
         categorical, timestamp, numerical, group_by, target_encoder = dataframe_features_train
         categorical_valid, timestamp_valid, numerical_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
-        hand_crafted_text, hand_crafted_text_valid = text_features((feature_by_type_split, feature_by_type_split_valid),
-                                                                   config, train_mode, **kwargs)
+        hand_crafted_text, hand_crafted_text_valid = text_features(config, train_mode, **kwargs)
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
@@ -67,12 +66,12 @@ def feature_extraction(config, train_mode, **kwargs):
         return feature_combiner, feature_combiner_valid
     else:
         missing = _is_missing_features(config, train_mode, **kwargs)
-        feature_by_type_split = _feature_by_type_splits(config, train_mode)
+        feature_by_type_split = _feature_by_type_splits(config, train_mode, **kwargs)
 
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             feature_by_type_split, config, train_mode, **kwargs)
 
-        hand_crafted_text = text_features(feature_by_type_split, config, train_mode, **kwargs)
+        hand_crafted_text = text_features(config, train_mode, **kwargs)
 
         feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by, hand_crafted_text],
                                           numerical_features_valid=[],
@@ -191,33 +190,29 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
         return train_features
 
 
-def text_features(dispatchers, config, train_mode, **kwargs):
+def text_features(config, train_mode, **kwargs):
     if train_mode:
-        feature_by_type_split, feature_by_type_split_valid = dispatchers
         text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(**config.text_counter),
-                             input_steps=[feature_by_type_split],
-                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
+                             transformer=fe.TextFeatures(**config.text_features),
+                             input_data=['input'],
+                             adapter={'X': ([('input', 'X')])},
                              cache_dirpath=config.env.cache_dirpath,
                              **kwargs)
 
         text_features_valid = Step(name='text_features_valid',
                                    transformer=text_features,
-                                   input_steps=[feature_by_type_split_valid],
-                                   adapter={'X': ([(feature_by_type_split_valid.name, 'categorical_features')])},
-                                   cache_dirpath=config.env.cache_dirpath,
-                                   **kwargs)
+                                   input_data=['input'],
+                                   adapter={'X': ([('input', 'X_valid')])},
+                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return text_features, text_features_valid
 
     else:
-        feature_by_type_split = dispatchers
         text_features = Step(name='text_features',
-                             transformer=fe.TextCounter(**config.text_counter),
-                             input_steps=[feature_by_type_split],
-                             adapter={'X': ([(feature_by_type_split.name, 'categorical_features')])},
-                             cache_dirpath=config.env.cache_dirpath,
-                             **kwargs)
+                             transformer=fe.TextFeatures(**config.text_features),
+                             input_data=['input'],
+                             adapter={'X': ([('input', 'X')])},
+                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return text_features
 
@@ -252,31 +247,29 @@ def classifier_lgbm(features, config, train_mode, **kwargs):
                                   'X_valid': ([(features_valid.name, 'features')]),
                                   'y_valid': ([('input', 'y_valid')], to_numpy_label_inputs),
                                   },
-                         cache_dirpath=config.env.cache_dirpath,
-                         **kwargs)
+                         cache_dirpath=config.env.cache_dirpath, **kwargs)
     else:
         light_gbm = Step(name='light_gbm',
                          transformer=LightGBM(**config.light_gbm),
                          input_steps=[features],
                          adapter={'X': ([(features.name, 'features')]), },
-                         cache_dirpath=config.env.cache_dirpath,
-                         **kwargs)
+                         cache_dirpath=config.env.cache_dirpath, **kwargs)
     return light_gbm
 
 
-def _feature_by_type_splits(config, train_mode):
+def _feature_by_type_splits(config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split = Step(name='feature_by_type_split',
                                      transformer=fe.DataFrameByTypeSplitter(**config.dataframe_by_type_splitter),
                                      input_data=['input'],
                                      adapter={'X': ([('input', 'X')]), },
-                                     cache_dirpath=config.env.cache_dirpath)
+                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         feature_by_type_split_valid = Step(name='feature_by_type_split_valid',
                                            transformer=feature_by_type_split,
                                            input_data=['input'],
                                            adapter={'X': ([('input', 'X_valid')]), },
-                                           cache_dirpath=config.env.cache_dirpath)
+                                           cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return feature_by_type_split, feature_by_type_split_valid
 
@@ -285,7 +278,7 @@ def _feature_by_type_splits(config, train_mode):
                                      transformer=fe.DataFrameByTypeSplitter(**config.dataframe_by_type_splitter),
                                      input_data=['input'],
                                      adapter={'X': ([('input', 'X')]), },
-                                     cache_dirpath=config.env.cache_dirpath)
+                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return feature_by_type_split
 
@@ -320,13 +313,12 @@ def _encode_categorical(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.HashingCategoricalEncoder(**config.categorical_encoder),
+                                   transformer=fe.OrdinalEncoder(**config.categorical_encoder),
                                    input_steps=[feature_by_type_split],
                                    adapter={
                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
                                    },
-                                   cache_dirpath=config.env.cache_dirpath,
-                                   **kwargs)
+                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         categorical_encoder_valid = Step(name='categorical_encoder_valid',
                                          transformer=categorical_encoder,
@@ -334,15 +326,14 @@ def _encode_categorical(dispatchers, config, train_mode, **kwargs):
                                          adapter={'categorical_features': (
                                              [(feature_by_type_split_valid.name, 'categorical_features')])
                                          },
-                                         cache_dirpath=config.env.cache_dirpath,
-                                         **kwargs)
+                                         cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return categorical_encoder, categorical_encoder_valid
 
     else:
         feature_by_type_split = dispatchers
         categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.HashingCategoricalEncoder(**config.categorical_encoder),
+                                   transformer=fe.OrdinalEncoder(**config.categorical_encoder),
                                    input_steps=[feature_by_type_split],
                                    adapter={
                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features')])
@@ -362,8 +353,7 @@ def _timestamp_features(dispatchers, config, train_mode, **kwargs):
                                   adapter={
                                       'timestamp_features': ([(feature_by_type_split.name, 'timestamp_features')])
                                   },
-                                  cache_dirpath=config.env.cache_dirpath,
-                                  **kwargs)
+                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         timestamp_features_valid = Step(name='timestamp_features_valid',
                                         transformer=timestamp_features,
@@ -371,8 +361,7 @@ def _timestamp_features(dispatchers, config, train_mode, **kwargs):
                                         adapter={'timestamp_features': (
                                             [(feature_by_type_split_valid.name, 'timestamp_features')])
                                         },
-                                        cache_dirpath=config.env.cache_dirpath,
-                                        **kwargs)
+                                        cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return timestamp_features, timestamp_features_valid
 
@@ -384,8 +373,7 @@ def _timestamp_features(dispatchers, config, train_mode, **kwargs):
                                   adapter={
                                       'timestamp_features': ([(feature_by_type_split.name, 'timestamp_features')])
                                   },
-                                  cache_dirpath=config.env.cache_dirpath,
-                                  **kwargs)
+                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return timestamp_features
 
@@ -408,8 +396,7 @@ def _numerical_features(dispatchers, config, train_mode, **kwargs):
                                         adapter={'numerical_features': (
                                             [(feature_by_type_split_valid.name, 'numerical_features')])
                                         },
-                                        cache_dirpath=config.env.cache_dirpath,
-                                        **kwargs)
+                                        cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return numerical_features, numerical_features_valid
 
@@ -421,8 +408,7 @@ def _numerical_features(dispatchers, config, train_mode, **kwargs):
                                   adapter={
                                       'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
                                   },
-                                  cache_dirpath=config.env.cache_dirpath,
-                                  **kwargs)
+                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return numerical_features
 
@@ -438,8 +424,7 @@ def _target_encoders(dispatchers, config, train_mode, **kwargs):
                                   'categorical_features': ([(feature_by_type_split.name, 'categorical_features')]),
                                   'target': ([('input', 'y')])
                               },
-                              cache_dirpath=config.env.cache_dirpath,
-                              **kwargs)
+                              cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         target_encoder_valid = Step(name='target_encoder_valid',
                                     transformer=target_encoder,
@@ -449,8 +434,7 @@ def _target_encoders(dispatchers, config, train_mode, **kwargs):
                                         [(feature_by_type_split_valid.name, 'categorical_features')]),
                                         'target': ([('input', 'y_valid')])
                                     },
-                                    cache_dirpath=config.env.cache_dirpath,
-                                    **kwargs)
+                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return target_encoder, target_encoder_valid
 
@@ -464,8 +448,7 @@ def _target_encoders(dispatchers, config, train_mode, **kwargs):
                                   'categorical_features': ([(feature_by_type_split.name, 'categorical_features')]),
                                   'target': ([('input', 'y')])
                               },
-                              cache_dirpath=config.env.cache_dirpath,
-                              **kwargs)
+                              cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return target_encoder
 
@@ -483,8 +466,7 @@ def _groupby_aggregations(dispatchers, additional_features, config, train_mode, 
                                                                   (feature_by_type_split.name, 'numerical_features')],
                                                                  pandas_concat_inputs)
                                     },
-                                    cache_dirpath=config.env.cache_dirpath,
-                                    **kwargs)
+                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         groupby_aggregations_valid = Step(name='groupby_aggregations_valid',
                                           transformer=groupby_aggregations,
@@ -496,8 +478,7 @@ def _groupby_aggregations(dispatchers, additional_features, config, train_mode, 
                                               pandas_concat_inputs
                                           )
                                           },
-                                          cache_dirpath=config.env.cache_dirpath,
-                                          **kwargs)
+                                          cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return groupby_aggregations, groupby_aggregations_valid
 
@@ -513,8 +494,7 @@ def _groupby_aggregations(dispatchers, additional_features, config, train_mode, 
                                                                   (feature_by_type_split.name, 'numerical_features')],
                                                                  pandas_concat_inputs)
                                     },
-                                    cache_dirpath=config.env.cache_dirpath,
-                                    **kwargs)
+                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return groupby_aggregations
 

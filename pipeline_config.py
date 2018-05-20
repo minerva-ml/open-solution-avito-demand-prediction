@@ -110,12 +110,10 @@ SOLUTION_CONFIG = AttrDict({
 
     'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
     'is_missing': {'columns': FEATURE_COLUMNS},
-    'categorical_encoder': {'cols': CATEGORICAL_COLUMNS,
-                            'n_components': params.categorical_encoder__n_components,
-                            'hash_method': params.categorical_encoder__hash_method
-                            },
+    'categorical_encoder': {},
 
-    'text_counter': {'text_column': 'description'},
+    'text_features': {'cols': ['description', 'title'],
+                      'overlap': True},
 
     'text_cleaner': {'text_features': ['description', 'title'],
                      'drop_punctuation': True,
