@@ -43,16 +43,20 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, numerical, group_by, target_encoder = dataframe_features_train
         categorical_valid, timestamp_valid, numerical_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
-        hand_crafted_text, hand_crafted_text_valid = text_features(config, train_mode, **kwargs)
+        (hand_crafted_text, word_overlap), (hand_crafted_text_valid, word_overlap_valid) = text_features(config,
+                                                                                                         train_mode,
+                                                                                                         **kwargs)
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
                                                                                       group_by,
-                                                                                      hand_crafted_text],
+                                                                                      hand_crafted_text,
+                                                                                      word_overlap],
                                                                   numerical_features_valid=[numerical_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
-                                                                                            hand_crafted_text_valid],
+                                                                                            hand_crafted_text_valid,
+                                                                                            word_overlap_valid],
                                                                   categorical_features=[timestamp,
                                                                                         missing,
                                                                                         categorical,
@@ -70,13 +74,14 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             feature_by_type_split, config, train_mode, **kwargs)
 
-        hand_crafted_text = text_features(config, train_mode, **kwargs)
+        hand_crafted_text, word_overlap = text_features(config, train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by, hand_crafted_text],
-                                          numerical_features_valid=[],
-                                          categorical_features=[timestamp, missing, categorical, target_encoder],
-                                          categorical_features_valid=[],
-                                          config=config, train_mode=train_mode, **kwargs)
+        feature_combiner = _join_features(
+            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap],
+            numerical_features_valid=[],
+            categorical_features=[timestamp, missing, categorical, target_encoder],
+            categorical_features_valid=[],
+            config=config, train_mode=train_mode, **kwargs)
         return feature_combiner
 
 
@@ -97,7 +102,7 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
             config, train_mode, **kwargs)
 
         groupby_aggregation, groupby_aggregation_valid = _groupby_aggregations(
-            (feature_by_type_split, feature_by_type_split_valid), (timestamp_features, timestamp_features_valid),
+            (timestamp_features, timestamp_features_valid),
             config, train_mode, **kwargs)
         target_encoder, target_encoder_valid = _target_encoders((feature_by_type_split, feature_by_type_split_valid),
                                                                 config, train_mode, **kwargs)
@@ -118,8 +123,7 @@ def dataframe_features(dispatchers, config, train_mode, **kwargs):
         encoded_categorical = _encode_categorical(feature_by_type_split, config, train_mode, **kwargs)
         timestamp_features = _timestamp_features(feature_by_type_split, config, train_mode, **kwargs)
         numerical_features = _numerical_features(feature_by_type_split, config, train_mode, **kwargs)
-        groupby_aggregation = _groupby_aggregations(feature_by_type_split, timestamp_features,
-                                                    config, train_mode, **kwargs)
+        groupby_aggregation = _groupby_aggregations(timestamp_features, config, train_mode, **kwargs)
         target_encoder = _target_encoders(feature_by_type_split, config, train_mode, **kwargs)
 
         train_features = (encoded_categorical,
@@ -136,8 +140,7 @@ def text_features(config, train_mode, **kwargs):
                              transformer=fe.TextFeatures(**config.text_features),
                              input_data=['input'],
                              adapter={'X': ([('input', 'X')])},
-                             cache_dirpath=config.env.cache_dirpath,
-                             **kwargs)
+                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         text_features_valid = Step(name='text_features_valid',
                                    transformer=text_features,
@@ -145,7 +148,19 @@ def text_features(config, train_mode, **kwargs):
                                    adapter={'X': ([('input', 'X_valid')])},
                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return text_features, text_features_valid
+        word_overlap = Step(name='word_overlap',
+                            transformer=fe.WordOverlap(**config.word_overlap),
+                            input_data=['input'],
+                            adapter={'X': ([('input', 'X')])},
+                            cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        word_overlap_valid = Step(name='word_overlap_valid',
+                                  transformer=word_overlap,
+                                  input_data=['input'],
+                                  adapter={'X': ([('input', 'X_valid')])},
+                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return (text_features, word_overlap), (text_features_valid, word_overlap_valid)
 
     else:
         text_features = Step(name='text_features',
@@ -154,7 +169,13 @@ def text_features(config, train_mode, **kwargs):
                              adapter={'X': ([('input', 'X')])},
                              cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return text_features
+        word_overlap = Step(name='word_overlap',
+                            transformer=fe.WordOverlap(**config.word_overlap),
+                            input_data=['input'],
+                            adapter={'X': ([('input', 'X')])},
+                            cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return text_features, word_overlap
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):
@@ -393,46 +414,43 @@ def _target_encoders(dispatchers, config, train_mode, **kwargs):
         return target_encoder
 
 
-def _groupby_aggregations(dispatchers, additional_features, config, train_mode, **kwargs):
+def _groupby_aggregations(additional_features, config, train_mode, **kwargs):
     if train_mode:
-        feature_by_type_split, feature_by_type_split_valid = dispatchers
         added_feature, added_feature_valid = additional_features
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[feature_by_type_split, added_feature],
+                                    input_data=['input'],
+                                    input_steps=[added_feature],
                                     adapter={
-                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
-                                                                  (added_feature.name, 'categorical_features'),
-                                                                  (feature_by_type_split.name, 'numerical_features')],
-                                                                 pandas_concat_inputs)
+                                        'X': ([('input', 'X'),
+                                               (added_feature.name, 'categorical_features')],
+                                              pandas_concat_inputs)
                                     },
                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         groupby_aggregations_valid = Step(name='groupby_aggregations_valid',
                                           transformer=groupby_aggregations,
-                                          input_steps=[feature_by_type_split_valid, added_feature_valid],
-                                          adapter={'categorical_features': (
-                                              [(feature_by_type_split_valid.name, 'categorical_features'),
-                                               (added_feature_valid.name, 'categorical_features'),
-                                               (feature_by_type_split_valid.name, 'numerical_features')],
-                                              pandas_concat_inputs
-                                          )
-                                          },
+                                          input_data=['input'],
+                                          input_steps=[added_feature_valid],
+                                          adapter={'X': ([('input', 'X_valid'),
+                                                          (added_feature_valid.name, 'categorical_features')],
+                                                         pandas_concat_inputs
+                                                         )
+                                                   },
                                           cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return groupby_aggregations, groupby_aggregations_valid
 
     else:
-        feature_by_type_split = dispatchers
         added_feature = additional_features
         groupby_aggregations = Step(name='groupby_aggregations',
                                     transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[feature_by_type_split, added_feature],
+                                    input_data=['input'],
+                                    input_steps=[added_feature],
                                     adapter={
-                                        'categorical_features': ([(feature_by_type_split.name, 'categorical_features'),
-                                                                  (added_feature.name, 'categorical_features'),
-                                                                  (feature_by_type_split.name, 'numerical_features')],
-                                                                 pandas_concat_inputs)
+                                        'X': ([('input', 'X'),
+                                               (added_feature.name, 'categorical_features')],
+                                              pandas_concat_inputs)
                                     },
                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
 
