@@ -44,16 +44,20 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, numerical, group_by, target_encoder = dataframe_features_train
         categorical_valid, timestamp_valid, numerical_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
-        hand_crafted_text, hand_crafted_text_valid = text_features(config, train_mode, **kwargs)
+        (hand_crafted_text, word_overlap), (hand_crafted_text_valid, word_overlap_valid) = text_features(config,
+                                                                                                         train_mode,
+                                                                                                         **kwargs)
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
                                                                                       group_by,
-                                                                                      hand_crafted_text],
+                                                                                      hand_crafted_text,
+                                                                                      word_overlap],
                                                                   numerical_features_valid=[numerical_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
-                                                                                            hand_crafted_text_valid],
+                                                                                            hand_crafted_text_valid,
+                                                                                            word_overlap_valid],
                                                                   categorical_features=[timestamp,
                                                                                         missing,
                                                                                         categorical,
@@ -71,13 +75,14 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             feature_by_type_split, config, train_mode, **kwargs)
 
-        hand_crafted_text = text_features(config, train_mode, **kwargs)
+        hand_crafted_text, word_overlap = text_features(config, train_mode, **kwargs)
 
-        feature_combiner = _join_features(numerical_features=[prices, target_encoder, group_by, hand_crafted_text],
-                                          numerical_features_valid=[],
-                                          categorical_features=[timestamp, missing, categorical, target_encoder],
-                                          categorical_features_valid=[],
-                                          config=config, train_mode=train_mode, **kwargs)
+        feature_combiner = _join_features(
+            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap],
+            numerical_features_valid=[],
+            categorical_features=[timestamp, missing, categorical, target_encoder],
+            categorical_features_valid=[],
+            config=config, train_mode=train_mode, **kwargs)
         return feature_combiner
 
 
@@ -196,8 +201,7 @@ def text_features(config, train_mode, **kwargs):
                              transformer=fe.TextFeatures(**config.text_features),
                              input_data=['input'],
                              adapter={'X': ([('input', 'X')])},
-                             cache_dirpath=config.env.cache_dirpath,
-                             **kwargs)
+                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         text_features_valid = Step(name='text_features_valid',
                                    transformer=text_features,
@@ -205,7 +209,19 @@ def text_features(config, train_mode, **kwargs):
                                    adapter={'X': ([('input', 'X_valid')])},
                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return text_features, text_features_valid
+        word_overlap = Step(name='word_overlap',
+                            transformer=fe.WordOverlap(**config.word_overlap),
+                            input_data=['input'],
+                            adapter={'X': ([('input', 'X')])},
+                            cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        word_overlap_valid = Step(name='word_overlap_valid',
+                                  transformer=word_overlap,
+                                  input_data=['input'],
+                                  adapter={'X': ([('input', 'X_valid')])},
+                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return (text_features, word_overlap), (text_features_valid, word_overlap_valid)
 
     else:
         text_features = Step(name='text_features',
@@ -214,7 +230,13 @@ def text_features(config, train_mode, **kwargs):
                              adapter={'X': ([('input', 'X')])},
                              cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return text_features
+        word_overlap = Step(name='word_overlap',
+                            transformer=fe.WordOverlap(**config.word_overlap),
+                            input_data=['input'],
+                            adapter={'X': ([('input', 'X')])},
+                            cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return text_features, word_overlap
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):

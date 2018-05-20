@@ -295,30 +295,18 @@ class BinaryEncoder(BaseTransformer):
 
 
 class TextFeatures(BaseTransformer):
-    def __init__(self, cols, overlap):
+    def __init__(self, cols):
         self.cols = cols
-        self.overlap = overlap
 
     def transform(self, X):
         X_text_features = self._extract_text_features(X)
-
-        if self.overlap:
-            X_overlap_features = self._extract_overlap_features(X)
-            X_all_features = pd.concat(X_text_features + X_overlap_features, axis=1)
-        else:
-            X_all_features = pd.concat(X_text_features, axis=1)
+        X_all_features = pd.concat(X_text_features, axis=1)
         return {'numerical_features': X_all_features}
-
-    def _extract_overlap_features(self, X):
-        X_overlap_features = []
-        for text_col1, text_col2 in combinations(self.cols, 2):
-            X_overlap = self._word_overlap(X[[text_col1, text_col2]].astype(str))
-            X_overlap_features.append(X_overlap)
-        return X_overlap_features
 
     def _extract_text_features(self, X):
         X_text_features = []
         for text_column in self.cols:
+            logger.info('processing {}'.format(text_column))
             X_text = X[[text_column]].astype(str)
             X_text = X_text[text_column].apply(self._extract_first_level)
             X_text = self._extract_second_level(X_text)
@@ -326,17 +314,6 @@ class TextFeatures(BaseTransformer):
             X_text.fillna(0.0, inplace=True)
             X_text_features.append(X_text)
         return X_text_features
-
-    def _word_overlap(self, X):
-        col1, col2 = list(X.columns)
-
-        def overlap(x):
-            words1, words2 = x[col1].lower().split(), x[col2].lower().split()
-            return len(set(words1) & set(words2))
-
-        X['overlap_{}_{}'.format(col1, col2)] = X.apply(overlap, axis=1)
-        X.drop([col1, col2], axis=1, inplace=True)
-        return X
 
     def _extract_first_level(self, x):
         features = {}
@@ -357,6 +334,35 @@ class TextFeatures(BaseTransformer):
     def _extract_second_level(self, X):
         X['caps_vs_length'] = X['upper_case_count'].astype(float) / X['char_count'].astype(float)
         X['words_vs_unique'] = X['num_unique_words'].astype(float) / X['num_words'].astype(float)
+        return X
+
+
+class WordOverlap(BaseTransformer):
+    def __init__(self, overlap_cols):
+        self.overlap_cols = overlap_cols
+
+    def transform(self, X):
+        X_overlap_features = self._extract_overlap_features(X)
+        X_overlap_features = pd.concat(X_overlap_features, axis=1)
+        return {'numerical_features': X_overlap_features}
+
+    def _extract_overlap_features(self, X):
+        X_overlap_features = []
+        for text_col1, text_col2 in self.overlap_cols:
+            logger.info('processing {} with {}'.format(text_col1, text_col2))
+            X_overlap = self._word_overlap(X[[text_col1, text_col2]].astype(str))
+            X_overlap_features.append(X_overlap)
+        return X_overlap_features
+
+    def _word_overlap(self, X):
+        col1, col2 = list(X.columns)
+
+        def overlap(x):
+            words1, words2 = x[col1].lower().split(), x[col2].lower().split()
+            return len(set(words1) & set(words2))
+
+        X['overlap_{}_{}'.format(col1, col2)] = X.apply(overlap, axis=1)
+        X.drop([col1, col2], axis=1, inplace=True)
         return X
 
 
