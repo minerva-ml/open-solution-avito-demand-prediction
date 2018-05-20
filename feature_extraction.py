@@ -1,5 +1,6 @@
 import re
 import string
+from itertools import combinations
 
 import category_encoders as ce
 import numpy as np
@@ -97,29 +98,6 @@ class CategoricalFilter(BaseTransformer):
         joblib.dump(params, filepath)
 
 
-class TargetEncoder(BaseTransformer):
-    def __init__(self, **kwargs):
-        self.params = kwargs
-        self.encoder_class = ce.TargetEncoder
-
-    def fit(self, X, y, **kwargs):
-        categorical_columns = list(X.columns)
-        self.target_encoder = self.encoder_class(cols=categorical_columns, **self.params)
-        self.target_encoder.fit(X, y)
-        return self
-
-    def transform(self, X, y=None, **kwargs):
-        X_ = self.target_encoder.transform(X)
-        return {'numerical_features': X_}
-
-    def load(self, filepath):
-        self.target_encoder = joblib.load(filepath)
-        return self
-
-    def save(self, filepath):
-        joblib.dump(self.target_encoder, filepath)
-
-
 class TargetEncoderNSplits(BaseTransformer):
     def __init__(self, n_splits, **kwargs):
         self.k_folds = KFold(n_splits=n_splits)
@@ -181,6 +159,52 @@ class TargetEncoderNSplits(BaseTransformer):
         joblib.dump(self.target_means_map, filepath)
 
 
+class TargetEncoder(BaseTransformer):
+    def __init__(self, **kwargs):
+        self.params = kwargs
+        self.encoder_class = ce.TargetEncoder
+
+    def fit(self, X, y, **kwargs):
+        categorical_columns = list(X.columns)
+        self.target_encoder = self.encoder_class(cols=categorical_columns, **self.params)
+        self.target_encoder.fit(X, y)
+        return self
+
+    def transform(self, X, y=None, **kwargs):
+        X_ = self.target_encoder.transform(X)
+        return {'numerical_features': X_}
+
+    def load(self, filepath):
+        self.target_encoder = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.target_encoder, filepath)
+
+
+class OrdinalEncoder(BaseTransformer):
+    def __init__(self, **kwargs):
+        self.params = kwargs
+        self.encoder_class = ce.ordinal.OrdinalEncoder
+
+    def fit(self, categorical_features, **kwargs):
+        categorical_columns = list(categorical_features.columns)
+        self.encoder = self.encoder_class(cols=categorical_columns, **self.params)
+        self.encoder.fit(categorical_features)
+        return self
+
+    def transform(self, categorical_features, **kwargs):
+        X_ = self.encoder.transform(categorical_features)
+        return {'categorical_features': X_}
+
+    def load(self, filepath):
+        self.encoder = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.encoder, filepath)
+
+
 class BinaryEncoder(BaseTransformer):
     def __init__(self, **kwargs):
         self.params = kwargs
@@ -204,27 +228,52 @@ class BinaryEncoder(BaseTransformer):
         joblib.dump(self.target_encoder, filepath)
 
 
-class TextCounter(BaseTransformer):
-
-    def __init__(self, text_column):
-        self.text_column = text_column
+class TextFeatures(BaseTransformer):
+    def __init__(self, cols, overlap):
+        self.cols = cols
+        self.overlap = overlap
 
     def transform(self, X):
-        X = pd.DataFrame(X, columns=[self.text_column]).astype(str)
-        X = X[self.text_column].apply(self._transform)
-        X['caps_vs_length'] = X.apply(lambda row: float(row['upper_case_count']) / float(row['char_count']), axis=1)
-        X['num_symbols'] = X[self.text_column].apply(lambda comment: sum(comment.count(w) for w in '*&$%'))
-        X['num_words'] = X[self.text_column].apply(lambda comment: len(comment.split()))
-        X['num_unique_words'] = X[self.text_column].apply(lambda comment: len(set(w for w in comment.split())))
-        X['words_vs_unique'] = X['num_unique_words'] / X['num_words']
-        X['mean_word_len'] = X[self.text_column].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
-        X.drop(self.text_column, axis=1, inplace=True)
-        X.fillna(0.0, inplace=True)
-        return {'numerical_features': X}
+        X_text_features = self._extract_text_features(X)
 
-    def _transform(self, x):
+        if self.overlap:
+            X_overlap_features = self._extract_overlap_features(X)
+            X_all_features = pd.concat(X_text_features + X_overlap_features, axis=1)
+        else:
+            X_all_features = pd.concat(X_text_features, axis=1)
+        return {'numerical_features': X_all_features}
+
+    def _extract_overlap_features(self, X):
+        X_overlap_features = []
+        for text_col1, text_col2 in combinations(self.cols, 2):
+            X_overlap = self._word_overlap(X[[text_col1, text_col2]].astype(str))
+            X_overlap_features.append(X_overlap)
+        return X_overlap_features
+
+    def _extract_text_features(self, X):
+        X_text_features = []
+        for text_column in self.cols:
+            X_text = X[[text_column]].astype(str)
+            X_text = X_text[text_column].apply(self._extract_first_level)
+            X_text = self._extract_second_level(X_text)
+            X_text.columns = ['{}_{}'.format(text_column, col) for col in X_text.columns]
+            X_text.fillna(0.0, inplace=True)
+            X_text_features.append(X_text)
+        return X_text_features
+
+    def _word_overlap(self, X):
+        col1, col2 = list(X.columns)
+
+        def overlap(x):
+            words1, words2 = x[col1].lower().split(), x[col2].lower().split()
+            return len(set(words1) & set(words2))
+
+        X['overlap_{}_{}'.format(col1, col2)] = X.apply(overlap, axis=1)
+        X.drop([col1, col2], axis=1, inplace=True)
+        return X
+
+    def _extract_first_level(self, x):
         features = {}
-        features['description'] = x
         features['char_count'] = len(x)
         features['word_count'] = len(x.split())
         features['punctuation_count'] = sum([1 for i in x if i in string.punctuation])
@@ -233,7 +282,16 @@ class TextCounter(BaseTransformer):
         features['digit_count'] = sum(c.isdigit() for c in x)
         features['space_count'] = sum(c.isspace() for c in x)
         features['newline_count'] = x.count('\n')
+        features['num_symbols'] = sum(x.count(w) for w in '*&$%')
+        features['num_words'] = len(x.split())
+        features['num_unique_words'] = len(set(w for w in x.split()))
+        features['mean_word_len'] = np.mean([len(w) for w in x.split()])
         return pd.Series(features)
+
+    def _extract_second_level(self, X):
+        X['caps_vs_length'] = X['upper_case_count'].astype(float) / X['char_count'].astype(float)
+        X['words_vs_unique'] = X['num_unique_words'].astype(float) / X['num_words'].astype(float)
+        return X
 
 
 class TextCleaner(BaseTransformer):
