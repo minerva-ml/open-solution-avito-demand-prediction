@@ -1,7 +1,5 @@
 # Avito Demand Prediction Challenge: open solution
 
-[![Join the chat at https://gitter.im/minerva-ml/open-solution-avito-demand-prediction](https://badges.gitter.im/minerva-ml/open-solution-avito-demand-prediction.svg)](https://gitter.im/minerva-ml/open-solution-avito-demand-prediction?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 This is an open solution to the [Avito Demand Prediction Challenge](https://www.kaggle.com/c/avito-demand-prediction).
 
 ## The goal
