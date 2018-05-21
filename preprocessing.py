@@ -1,13 +1,11 @@
-import os
-
 import pandas as pd
 from joblib import Parallel, delayed
 from googletrans import Translator
 
 translator = Translator()
 
-def translate(filepath, column_to_translate):
 
+def translate(filepath, column_to_translate):
     df = pd.read_csv(filepath)
 
     for column in column_to_translate:
