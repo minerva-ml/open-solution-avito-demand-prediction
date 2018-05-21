@@ -35,7 +35,7 @@ USER_ID_COLUMN = ['user_id']
 FEATURES_TO_TRANSLATE = ['category_name', 'city', 'description', 'param_1', 'param_2', 'param_3',
                          'parent_category_name', 'region', 'title']
 
-DEV_SAMPLE_SIZE = int(10e3)
+DEV_SAMPLE_SIZE = int(10e2)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
@@ -93,10 +93,12 @@ SOLUTION_CONFIG = AttrDict({
                                                   }
                                     }
                       },
-    'dataframe_by_type_splitter': {'numerical_columns': NUMERICAL_COLUMNS,
-                                   'categorical_columns': CATEGORICAL_COLUMNS,
-                                   'timestamp_columns': TIMESTAMP_COLUMNS,
-                                   },
+
+    'input_missing': {'text_columns': (TEXT_COLUMNS, '<this_is_missing_value>'),
+                      'categorical_columns': (CATEGORICAL_COLUMNS, '-9999'),
+                      'numerical_columns': (NUMERICAL_COLUMNS, 0),
+                      'timestamp_columns': (TIMESTAMP_COLUMNS, '2017-03-15')
+                      },
 
     'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
     'is_missing': {'columns': FEATURE_COLUMNS},
