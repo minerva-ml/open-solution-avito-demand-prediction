@@ -462,6 +462,7 @@ class DateFeatures(BaseTransformer):
         date_features_names = ['{}_month'.format(self.date_column),
                                '{}_day'.format(self.date_column),
                                '{}_weekday'.format(self.date_column),
+                               '{}_week'.format(self.date_column),
                                ]
         return date_features_names
 
@@ -470,6 +471,7 @@ class DateFeatures(BaseTransformer):
         timestamp_features['{}_month'.format(self.date_column)] = date_index.month
         timestamp_features['{}_day'.format(self.date_column)] = date_index.day
         timestamp_features['{}_weekday'.format(self.date_column)] = date_index.weekday
+        timestamp_features['{}_week'.format(self.date_column)] = date_index.week
         return {'categorical_features': timestamp_features[self.date_features_names].astype(int)}
 
 
