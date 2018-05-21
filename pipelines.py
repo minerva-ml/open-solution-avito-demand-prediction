@@ -343,7 +343,7 @@ def _numerical_features(dispatchers, config, train_mode, **kwargs):
     if train_mode:
         feature_by_type_split, feature_by_type_split_valid = dispatchers
         numerical_features = Step(name='numerical_features',
-                                  transformer=Dummy(),
+                                  transformer=fe.ProcessNumerical(),
                                   input_steps=[feature_by_type_split],
                                   adapter={
                                       'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
@@ -364,7 +364,7 @@ def _numerical_features(dispatchers, config, train_mode, **kwargs):
     else:
         feature_by_type_split = dispatchers
         numerical_features = Step(name='numerical_features',
-                                  transformer=Dummy(),
+                                  transformer=fe.ProcessNumerical(),
                                   input_steps=[feature_by_type_split],
                                   adapter={
                                       'numerical_features': ([(feature_by_type_split.name, 'numerical_features')])
