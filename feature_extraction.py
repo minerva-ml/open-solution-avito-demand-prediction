@@ -475,6 +475,12 @@ class DateFeatures(BaseTransformer):
         return {'categorical_features': timestamp_features[self.date_features_names].astype(int)}
 
 
+class ProcessNumerical(BaseTransformer):
+    def transform(self, numerical_features, **kwargs):
+        numerical_features['price'] = np.log1p(numerical_features['price'].values)
+        return {'numerical_features': numerical_features}
+
+
 class Blacklist(BaseTransformer):
     def __init__(self, blacklist):
         self.blacklist = blacklist
