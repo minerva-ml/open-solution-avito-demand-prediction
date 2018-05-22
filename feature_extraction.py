@@ -1,6 +1,5 @@
 import re
 import string
-from itertools import combinations
 
 import category_encoders as ce
 import numpy as np
@@ -8,6 +7,8 @@ import pandas as pd
 from sklearn.model_selection import KFold
 from sklearn.externals import joblib
 from sklearn import preprocessing as prep
+from sklearn.feature_extraction import text
+from scipy.sparse import hstack, csr_matrix
 
 from steps.base import BaseTransformer
 from steps.utils import get_logger
@@ -37,14 +38,23 @@ class DataFrameByTypeSplitter(BaseTransformer):
 
 
 class FeatureJoiner(BaseTransformer):
-    def transform(self, numerical_feature_list, categorical_feature_list, **kwargs):
+    def transform(self, numerical_feature_list, categorical_feature_list, sparse_feature_list, **kwargs):
         features = numerical_feature_list + categorical_feature_list
         for feature in features:
             feature.reset_index(drop=True, inplace=True)
+        dense_features = pd.concat(features, axis=1).astype(np.float32)
+
         outputs = {}
-        outputs['features'] = pd.concat(features, axis=1).astype(np.float32)
-        outputs['feature_names'] = self._get_feature_names(features)
-        outputs['categorical_features'] = self._get_feature_names(categorical_feature_list)
+        if len(sparse_feature_list) != 0:
+            sparse_features = hstack(sparse_feature_list)
+            all_features = hstack([csr_matrix(dense_features.values), sparse_features])
+            outputs['features'] = all_features
+            outputs['feature_names'] = list(dense_features.columns) + self._get_sparse_names(sparse_features.shape)
+            outputs['categorical_features'] = self._get_feature_names(categorical_feature_list)
+        else:
+            outputs['features'] = dense_features
+            outputs['feature_names'] = self._get_feature_names(features)
+            outputs['categorical_features'] = self._get_feature_names(categorical_feature_list)
         return outputs
 
     def _get_feature_names(self, dataframes):
@@ -57,6 +67,9 @@ class FeatureJoiner(BaseTransformer):
                 feature_names.append(dataframe.name)
 
         return feature_names
+
+    def _get_sparse_names(self, shape):
+        return ['sparse_feature_{}'.format(i) for i in range(shape[1])]
 
 
 class CategoricalFilter(BaseTransformer):
@@ -555,3 +568,31 @@ class ConfidenceRate(BaseTransformer):
         confidence = np.min([1, np.log(x.count()) / np.log(self.confidence_level)])
 
         return rate * confidence * 100
+
+
+class MultiColumnTfidfVectorizer(BaseTransformer):
+    def __init__(self, cols_params):
+        self.cols_vectorizers = self._get_vectorizers(cols_params)
+
+    def fit(self, X, **kwargs):
+        for col, vectorizer in self.cols_vectorizers:
+            vectorizer.fit(X[col].values)
+        return self
+
+    def transform(self, X, **kwargs):
+        sparse_features = []
+        for col, vectorizer in self.cols_vectorizers:
+            sparse_feature = vectorizer.transform(X[col].values)
+            sparse_features.append(sparse_feature)
+        sparse_features = hstack(sparse_features)
+        return {'sparse_features': sparse_features}
+
+    def load(self, filepath):
+        self.cols_vectorizers = joblib.load(filepath)
+        return self
+
+    def save(self, filepath):
+        joblib.dump(self.cols_vectorizers, filepath)
+
+    def _get_vectorizers(self, cols_params):
+        return [(col, text.TfidfVectorizer(**params)) for col, params in cols_params]

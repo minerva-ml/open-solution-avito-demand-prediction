@@ -3,6 +3,8 @@ import os
 
 from attrdict import AttrDict
 from deepsense import neptune
+from nltk.corpus import stopwords
+import numpy as np
 
 from utils import read_params, safe_eval
 
@@ -35,7 +37,7 @@ USER_ID_COLUMN = ['user_id']
 FEATURES_TO_TRANSLATE = ['category_name', 'city', 'description', 'param_1', 'param_2', 'param_3',
                          'parent_category_name', 'region', 'title']
 
-DEV_SAMPLE_SIZE = int(10e2)
+DEV_SAMPLE_SIZE = int(10e1)
 
 COLUMN_TYPES = {'train': {'price': 'float64',
                           'item_seq_number': 'uint32',
@@ -118,6 +120,27 @@ SOLUTION_CONFIG = AttrDict({
                                       ('title', 'param_3'),
                                       ]},
 
+    'tfidf': {'cols_params': [('description', {'ngram_range': (1, 2),
+                                               'max_features': 16000,
+                                               "stop_words": set(stopwords.words('english')),
+                                               "analyzer": 'word',
+                                               "token_pattern": r'\w{1,}',
+                                               "sublinear_tf": True,
+                                               "dtype": np.float32,
+                                               "norm": 'l2',
+                                               "smooth_idf": False
+                                               }),
+                              ('title', {'ngram_range': (1, 2),
+                                         'max_features': 8000,
+                                         "stop_words": set(stopwords.words('english')),
+                                         "analyzer": 'word',
+                                         "token_pattern": r'\w{1,}',
+                                         "sublinear_tf": True,
+                                         "dtype": np.float32,
+                                         "norm": 'l2',
+                                         "smooth_idf": False
+                                         })]},
+
     'text_cleaner': {'text_features': ['description', 'title'],
                      'drop_punctuation': True,
                      'all_lower_case': True
@@ -136,13 +159,13 @@ SOLUTION_CONFIG = AttrDict({
                   'max_depth': safe_eval(params.lgbm__max_depth),
                   'subsample': safe_eval(params.lgbm__subsample),
                   'colsample_bytree': safe_eval(params.lgbm__colsample_bytree),
-                  'min_child_weight': safe_eval(params.lgbm__min_child_weight),
-                  'reg_lambda': safe_eval(params.lgbm__reg_lambda),
-                  'reg_alpha': safe_eval(params.lgbm__reg_alpha),
+                  # 'min_child_weight': safe_eval(params.lgbm__min_child_weight),
+                  # 'reg_lambda': safe_eval(params.lgbm__reg_lambda),
+                  # 'reg_alpha': safe_eval(params.lgbm__reg_alpha),
                   'subsample_freq': safe_eval(params.lgbm__subsample_freq),
-                  'max_bin': safe_eval(params.lgbm__max_bin),
-                  'min_child_samples': safe_eval(params.lgbm__min_child_samples),
-                  'num_leaves': safe_eval(params.lgbm__num_leaves),
+                  # 'max_bin': safe_eval(params.lgbm__max_bin),
+                  # 'min_child_samples': safe_eval(params.lgbm__min_child_samples),
+                  # 'num_leaves': safe_eval(params.lgbm__num_leaves),
                   'nthread': safe_eval(params.num_workers),
                   'number_boosting_rounds': safe_eval(params.lgbm__number_boosting_rounds),
                   'early_stopping_rounds': safe_eval(params.lgbm__early_stopping_rounds),
