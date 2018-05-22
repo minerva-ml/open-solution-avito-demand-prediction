@@ -1,9 +1,13 @@
+import os
 import re
 import string
+from multiprocessing import Pool
 
 import category_encoders as ce
+import cv2
 import numpy as np
 import pandas as pd
+from PIL import Image, ImageStat
 from sklearn.model_selection import KFold
 from sklearn.externals import joblib
 from sklearn import preprocessing as prep
@@ -596,3 +600,87 @@ class MultiColumnTfidfVectorizer(BaseTransformer):
 
     def _get_vectorizers(self, cols_params):
         return [(col, text.TfidfVectorizer(**params)) for col, params in cols_params]
+
+
+class ImageStatistics(BaseTransformer):
+    PIL_FEATURES_NR = 12
+    CV2_FEATURES_NR = 262
+
+    def __init__(self, cols, img_dir_train, img_dir_test, n_jobs, log_features):
+        self.cols = cols
+        self.img_dir_train = img_dir_train
+        self.img_dir_test = img_dir_test
+        self.n_jobs = n_jobs
+        self.log_features = log_features
+
+    def transform(self, X, is_train, **kwargs):
+        self.train_mode = is_train
+        numerical_features = []
+        for col in self.cols:
+            numerical_features_col = self._get_column_image_stats(X[col], col)
+            numerical_features.append(numerical_features_col)
+        numerical_features = pd.concat(numerical_features, axis=1)
+        if self.log_features:
+            numerical_features = np.log1p(numerical_features)
+        return {'numerical_features': numerical_features}
+
+    def _pil_feature_names(self, colname):
+        pil_feature_names = ['{}_pil_image_stat_{}'.format(colname, i)
+                             for i in range(ImageStatistics.PIL_FEATURES_NR)]
+        return pil_feature_names
+
+    def _cv2_feature_names(self, colname):
+        cv2_feature_names = ['{}_cv2_image_stat_{}'.format(colname, i)
+                             for i in range(ImageStatistics.CV2_FEATURES_NR)]
+        return cv2_feature_names
+
+    def _get_column_image_stats(self, image_col, column_name):
+        filepaths = [self._get_filepath(filename) for filename in image_col]
+
+        pool = Pool(self.n_jobs)
+        image_features = pool.map(extract_image_stats, filepaths)
+
+        image_features = np.vstack(image_features)
+        feature_names = self._pil_feature_names(column_name) + self._cv2_feature_names(column_name)
+        return pd.DataFrame(image_features, columns=feature_names)
+
+    def _get_filepath(self, filename):
+        img_dir_path = self.img_dir_train if self.train_mode else self.img_dir_test
+        filepath = os.path.join(img_dir_path, '{}.jpg'.format(filename))
+        return filepath
+
+
+def extract_image_stats(filepath):
+    try:
+        pil_img_stats = get_pil_image_stats(filepath)
+        cv2_img_stats = get_cv2_image_stats(filepath)
+    except Exception:
+        pil_img_stats = [0] * ImageStatistics.PIL_FEATURES_NR
+        cv2_img_stats = [0] * ImageStatistics.CV2_FEATURES_NR
+    return np.hstack([pil_img_stats, cv2_img_stats])
+
+
+def get_pil_image_stats(filepath):
+    image = Image.open(filepath, 'r')
+    img_stats_ = ImageStat.Stat(image)
+    stats = []
+    stats += img_stats_.mean
+    stats += img_stats_.rms
+    stats += img_stats_.var
+    stats += img_stats_.stddev
+    return stats
+
+
+def get_cv2_image_stats(filepath):
+    img = cv2.imread(filepath)
+    bw = cv2.imread(filepath, 0)
+    pixel_nr = float(bw.shape[0] * bw.shape[1])
+    stats = []
+    stats += list(cv2.calcHist([bw], [0], None, [256], [0, 256]).flatten() / pixel_nr)
+    mean, std = cv2.meanStdDev(img)
+    stats += list(mean)
+    stats += list(std)
+    stats += cv2.Laplacian(bw, cv2.CV_64F).var()
+    stats += (bw < 10).mean()
+    stats += (bw > 245).mean()
+    return stats
