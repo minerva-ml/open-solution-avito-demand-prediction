@@ -48,16 +48,20 @@ def feature_extraction(config, train_mode, **kwargs):
         hand_crafted_text, word_overlap, tfidf = text
         hand_crafted_text_valid, word_overlap_valid, tfidf_valid = text_valid
 
+        image_stats, image_stats_valid = image_features((cleaned, cleaned_valid), config, train_mode, **kwargs)
+
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
                                                                                       group_by,
                                                                                       hand_crafted_text,
-                                                                                      word_overlap],
+                                                                                      word_overlap,
+                                                                                      image_stats],
                                                                   numerical_features_valid=[numerical_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
                                                                                             hand_crafted_text_valid,
-                                                                                            word_overlap_valid],
+                                                                                            word_overlap_valid,
+                                                                                            image_stats_valid],
                                                                   categorical_features=[timestamp,
                                                                                         is_missing,
                                                                                         categorical,
@@ -79,8 +83,10 @@ def feature_extraction(config, train_mode, **kwargs):
 
         hand_crafted_text, word_overlap, tfidf = text_features(cleaned, config, train_mode, **kwargs)
 
+        image_stats = image_features(cleaned, config, train_mode, **kwargs)
+
         feature_combiner = _join_features(
-            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap],
+            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap, image_stats],
             numerical_features_valid=[],
             categorical_features=[timestamp, is_missing, categorical, target_encoder],
             categorical_features_valid=[],
@@ -203,6 +209,42 @@ def text_features(clean_features, config, train_mode, **kwargs):
                      cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return hand_crafted_text, word_overlap, tfidf
+
+
+def image_features(clean_features, config, train_mode, **kwargs):
+    if train_mode:
+        clean, clean_valid = clean_features
+
+        image_stats = Step(name='image_stats',
+                           transformer=fe.ImageStatistics(**config.image_stats),
+                           input_data=['specs'],
+                           input_steps=[clean],
+                           adapter={'X': ([(clean.name, 'clean_features')]),
+                                    'is_train': ([('specs', 'is_train')])},
+                           cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        image_stats_valid = Step(name='image_stats_valid',
+                                 transformer=image_stats,
+                                 input_data=['specs'],
+                                 input_steps=[clean_valid],
+                                 adapter={'X': ([(clean_valid.name, 'clean_features')]),
+                                          'is_train': ([('specs', 'is_train')])},
+                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return image_stats, image_stats_valid
+
+    else:
+        clean = clean_features
+
+        image_stats = Step(name='image_stats',
+                           transformer=fe.ImageStatistics(**config.image_stats),
+                           input_data=['specs'],
+                           input_steps=[clean],
+                           adapter={'X': ([(clean.name, 'clean_features')]),
+                                    'is_train': ([('specs', 'is_train')])},
+                           cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return image_stats
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):

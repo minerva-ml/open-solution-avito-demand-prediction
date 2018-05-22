@@ -105,6 +105,10 @@ SOLUTION_CONFIG = AttrDict({
     'date_features': {'date_column': TIMESTAMP_COLUMNS[0]},
     'is_missing': {'columns': FEATURE_COLUMNS},
     'categorical_encoder': {},
+    'groupby_aggregation': {'groupby_aggregations': AGGREGATION_RECIPIES
+                            },
+    'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
+                       },
 
     'text_features': {'cols': ['description', 'title']},
     'word_overlap': {'overlap_cols': [('description', 'title'),
@@ -119,7 +123,6 @@ SOLUTION_CONFIG = AttrDict({
                                       ('title', 'param_2'),
                                       ('title', 'param_3'),
                                       ]},
-
     'tfidf': {'cols_params': [('description', {'ngram_range': (1, 2),
                                                'max_features': 16000,
                                                "stop_words": set(stopwords.words('english')),
@@ -141,16 +144,11 @@ SOLUTION_CONFIG = AttrDict({
                                          "smooth_idf": False
                                          })]},
 
-    'text_cleaner': {'text_features': ['description', 'title'],
-                     'drop_punctuation': True,
-                     'all_lower_case': True
-                     },
-
-    'groupby_aggregation': {'groupby_aggregations': AGGREGATION_RECIPIES
-                            },
-
-    'target_encoder': {'n_splits': safe_eval(params.target_encoder__n_splits),
-                       },
+    'image_stats': {'cols': IMAGE_COLUMNS,
+                    'img_dir_train': params.train_image_dir,
+                    'img_dir_test': params.test_image_dir,
+                    'log_features': True,
+                    'n_jobs': params.num_workers},
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),
