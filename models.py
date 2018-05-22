@@ -19,7 +19,7 @@ class LightGBMLowMemory(LightGBM):
 
         self.evaluation_results = {}
         self.estimator = lgb.train(self.model_config,
-                                   train, valid_sets=[train, valid], valid_names=['train', 'valid'],
+                                   train, valid_sets=[valid], valid_names=['valid'],
                                    evals_result=self.evaluation_results,
                                    feature_name=feature_names,
                                    categorical_feature=categorical_features,
