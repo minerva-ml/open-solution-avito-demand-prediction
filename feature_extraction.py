@@ -637,8 +637,8 @@ class ImageStatistics(BaseTransformer):
     def _get_column_image_stats(self, image_col, column_name):
         filepaths = [self._get_filepath(filename) for filename in image_col]
 
-        pool = Pool(self.n_jobs)
-        image_features = pool.map(extract_image_stats, filepaths)
+        with Pool(self.n_jobs) as executor:
+            image_features = executor.map(extract_image_stats, filepaths)
 
         image_features = np.vstack(image_features)
         feature_names = self._pil_feature_names(column_name) + self._cv2_feature_names(column_name)
