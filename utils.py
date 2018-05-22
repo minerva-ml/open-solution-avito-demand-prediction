@@ -48,7 +48,7 @@ def stratified_train_valid_split(meta_train, target_column, target_bins, valid_s
 
 
 def get_logger():
-    return logging.getLogger('talking-data')
+    return logging.getLogger('avito')
 
 
 def create_submission(meta, predictions):
@@ -116,3 +116,7 @@ def root_mean_squared_error(y_true, y_pred):
 
 def pandas_concat_inputs(inputs, axis=1):
     return pd.concat(inputs, axis=axis)
+
+
+def pandas_subset_columns(inputs, cols):
+    return inputs[0][cols]
