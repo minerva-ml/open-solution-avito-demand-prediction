@@ -16,13 +16,13 @@ Create (entirely) open solution to this competition. We are opening not only the
 *   with neptune:
 ```bash
 $ neptune login
-$ neptune experiment run --config neptune.yaml main.py -- train_evaluate_predict --pipeline_name solution_1
+$ neptune experiment run --config neptune.yaml main.py -- train_evaluate_predict --pipeline_name main
 ```
 collect submit from `/output/solution-1` directory.
 
 * with pure python:
 ```bash
-$ python main.py -- train_evaluate_predict --pipeline_name solution_1
+$ python main.py -- train_evaluate_predict --pipeline_name main
 ```
 
 collect submit from `experiment_dir` directory that was specified in `neptune.yaml`
