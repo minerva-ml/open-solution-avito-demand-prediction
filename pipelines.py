@@ -44,9 +44,9 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, numerical, group_by, target_encoder = dataframe_features_train
         categorical_valid, timestamp_valid, numerical_valid, group_by_valid, target_encoder_valid = dataframe_features_valid
 
-        (hand_crafted_text, word_overlap), (hand_crafted_text_valid, word_overlap_valid) = text_features(config,
-                                                                                                         train_mode,
-                                                                                                         **kwargs)
+        text, text_valid = text_features((cleaned, cleaned_valid), config, train_mode, **kwargs)
+        hand_crafted_text, word_overlap, tfidf = text
+        hand_crafted_text_valid, word_overlap_valid, tfidf_valid = text_valid
 
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
@@ -66,6 +66,8 @@ def feature_extraction(config, train_mode, **kwargs):
                                                                                               is_missing_valid,
                                                                                               categorical_valid,
                                                                                               target_encoder_valid],
+                                                                  sparse_features=[tfidf],
+                                                                  sparse_features_valid=[tfidf_valid],
                                                                   config=config, train_mode=train_mode, **kwargs)
         return feature_combiner, feature_combiner_valid
     else:
@@ -75,13 +77,15 @@ def feature_extraction(config, train_mode, **kwargs):
         categorical, timestamp, prices, group_by, target_encoder = dataframe_features(
             cleaned, config, train_mode, **kwargs)
 
-        hand_crafted_text, word_overlap = text_features(config, train_mode, **kwargs)
+        hand_crafted_text, word_overlap, tfidf = text_features(cleaned, config, train_mode, **kwargs)
 
         feature_combiner = _join_features(
             numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap],
             numerical_features_valid=[],
             categorical_features=[timestamp, is_missing, categorical, target_encoder],
             categorical_features_valid=[],
+            sparse_features=[tfidf],
+            sparse_features_valid=[],
             config=config, train_mode=train_mode, **kwargs)
         return feature_combiner
 
@@ -135,48 +139,70 @@ def dataframe_features(clean_features, config, train_mode, **kwargs):
         return train_features
 
 
-def text_features(config, train_mode, **kwargs):
+def text_features(clean_features, config, train_mode, **kwargs):
     if train_mode:
-        text_features = Step(name='text_features',
-                             transformer=fe.TextFeatures(**config.text_features),
-                             input_data=['input'],
-                             adapter={'X': ([('input', 'X')])},
-                             cache_dirpath=config.env.cache_dirpath, **kwargs)
+        clean, clean_valid = clean_features
 
-        text_features_valid = Step(name='text_features_valid',
-                                   transformer=text_features,
-                                   input_data=['input'],
-                                   adapter={'X': ([('input', 'X_valid')])},
-                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
+        hand_crafted_text = Step(name='hand_crafted_text',
+                                 transformer=fe.TextFeatures(**config.text_features),
+                                 input_steps=[clean],
+                                 adapter={'X': ([(clean.name, 'clean_features')])},
+                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        hand_crafted_text_valid = Step(name='hand_crafted_text_valid',
+                                       transformer=hand_crafted_text,
+                                       input_steps=[clean_valid],
+                                       adapter={'X': ([(clean_valid.name, 'clean_features')])},
+                                       cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         word_overlap = Step(name='word_overlap',
                             transformer=fe.WordOverlap(**config.word_overlap),
-                            input_data=['input'],
-                            adapter={'X': ([('input', 'X')])},
+                            input_steps=[clean],
+                            adapter={'X': ([(clean.name, 'clean_features')])},
                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         word_overlap_valid = Step(name='word_overlap_valid',
                                   transformer=word_overlap,
-                                  input_data=['input'],
-                                  adapter={'X': ([('input', 'X_valid')])},
+                                  input_steps=[clean_valid],
+                                  adapter={'X': ([(clean_valid.name, 'clean_features')])},
                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return (text_features, word_overlap), (text_features_valid, word_overlap_valid)
+        tfidf = Step(name='tfidf',
+                     transformer=fe.MultiColumnTfidfVectorizer(**config.tfidf),
+                     input_steps=[clean],
+                     adapter={'X': ([(clean.name, 'clean_features')])},
+                     cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        tfidf_valid = Step(name='tfidf_valid',
+                           transformer=tfidf,
+                           input_steps=[clean_valid],
+                           adapter={'X': ([(clean_valid.name, 'clean_features')])},
+                           cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return (hand_crafted_text, word_overlap, tfidf), (hand_crafted_text_valid, word_overlap_valid, tfidf_valid)
 
     else:
-        text_features = Step(name='text_features',
-                             transformer=fe.TextFeatures(**config.text_features),
-                             input_data=['input'],
-                             adapter={'X': ([('input', 'X')])},
-                             cache_dirpath=config.env.cache_dirpath, **kwargs)
+        clean = clean_features
+
+        hand_crafted_text = Step(name='hand_crafted_text',
+                                 transformer=fe.TextFeatures(**config.text_features),
+                                 input_steps=[clean],
+                                 adapter={'X': ([(clean.name, 'clean_features')])},
+                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         word_overlap = Step(name='word_overlap',
                             transformer=fe.WordOverlap(**config.word_overlap),
-                            input_data=['input'],
-                            adapter={'X': ([('input', 'X')])},
+                            input_steps=[clean],
+                            adapter={'X': ([(clean.name, 'clean_features')])},
                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        return text_features, word_overlap
+        tfidf = Step(name='tfidf',
+                     transformer=fe.MultiColumnTfidfVectorizer(**config.tfidf),
+                     input_steps=[clean],
+                     adapter={'X': ([(clean.name, 'clean_features')])},
+                     cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+        return hand_crafted_text, word_overlap, tfidf
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):
@@ -477,11 +503,12 @@ def _groupby_aggregations(clean_features, additional_features, config, train_mod
 
 def _join_features(numerical_features, numerical_features_valid,
                    categorical_features, categorical_features_valid,
+                   sparse_features, sparse_features_valid,
                    config, train_mode, **kwargs):
     if train_mode:
         feature_joiner = Step(name='feature_joiner',
                               transformer=fe.FeatureJoiner(),
-                              input_steps=numerical_features + categorical_features,
+                              input_steps=numerical_features + categorical_features + sparse_features,
                               adapter={
                                   'numerical_feature_list': (
                                       [(feature.name, 'numerical_features') for feature in numerical_features],
@@ -489,18 +516,24 @@ def _join_features(numerical_features, numerical_features_valid,
                                   'categorical_feature_list': (
                                       [(feature.name, 'categorical_features') for feature in categorical_features],
                                       identity_inputs),
+                                  'sparse_feature_list': (
+                                      [(feature.name, 'sparse_features') for feature in sparse_features],
+                                      identity_inputs),
                               },
                               cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         feature_joiner_valid = Step(name='feature_joiner_valid',
                                     transformer=feature_joiner,
-                                    input_steps=numerical_features_valid + categorical_features_valid,
+                                    input_steps=numerical_features_valid + categorical_features_valid + sparse_features_valid,
                                     adapter={'numerical_feature_list': (
                                         [(feature.name, 'numerical_features') for feature in numerical_features_valid],
                                         identity_inputs),
                                         'categorical_feature_list': (
                                             [(feature.name, 'categorical_features') for feature in
                                              categorical_features_valid],
+                                            identity_inputs),
+                                        'sparse_feature_list': (
+                                            [(feature.name, 'sparse_features') for feature in sparse_features_valid],
                                             identity_inputs),
                                     },
                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
@@ -510,13 +543,16 @@ def _join_features(numerical_features, numerical_features_valid,
     else:
         feature_joiner = Step(name='feature_joiner',
                               transformer=fe.FeatureJoiner(),
-                              input_steps=numerical_features + categorical_features,
+                              input_steps=numerical_features + categorical_features + sparse_features,
                               adapter={
                                   'numerical_feature_list': (
                                       [(feature.name, 'numerical_features') for feature in numerical_features],
                                       identity_inputs),
                                   'categorical_feature_list': (
                                       [(feature.name, 'categorical_features') for feature in categorical_features],
+                                      identity_inputs),
+                                  'sparse_feature_list': (
+                                      [(feature.name, 'sparse_features') for feature in sparse_features],
                                       identity_inputs),
                               },
                               cache_dirpath=config.env.cache_dirpath, **kwargs)

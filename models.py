@@ -6,10 +6,10 @@ from steps.misc import LightGBM
 
 class LightGBMLowMemory(LightGBM):
     def fit(self, X, y, X_valid, y_valid, feature_names=None, categorical_features=None, **kwargs):
-        X = X[feature_names].values.astype(np.float32)
+        X = X.astype(np.float32)
         y = y.astype(np.float32)
 
-        X_valid = X_valid[feature_names].values.astype(np.float32)
+        X_valid = X_valid.astype(np.float32)
         y_valid = y_valid.astype(np.float32)
 
         train = lgb.Dataset(X, label=y,
