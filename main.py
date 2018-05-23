@@ -84,6 +84,7 @@ def _train(pipeline_name, dev_mode):
                       'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y_valid': meta_valid_split[cfg.TARGET_COLUMNS],
                       },
+            'specs': {'is_train': True}
             }
 
     pipeline = PIPELINES[pipeline_name]['train'](cfg.SOLUTION_CONFIG)
@@ -129,6 +130,7 @@ def _evaluate(pipeline_name, dev_mode):
     data = {'input': {'X': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y': None,
                       },
+            'specs': {'is_train': True}
             }
     pipeline = PIPELINES[pipeline_name]['inference'](cfg.SOLUTION_CONFIG)
     pipeline.clean_cache()
@@ -175,6 +177,7 @@ def _predict(pipeline_name, dev_mode):
     data = {'input': {'X': meta_test[cfg.FEATURE_COLUMNS],
                       'y': None,
                       },
+            'specs': {'is_train': False}
             }
 
     pipeline = PIPELINES[pipeline_name]['inference'](cfg.SOLUTION_CONFIG)
