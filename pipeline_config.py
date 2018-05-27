@@ -164,6 +164,8 @@ SOLUTION_CONFIG = AttrDict({
                   'max_bin': safe_eval(params.lgbm__max_bin),
                   'min_child_samples': safe_eval(params.lgbm__min_child_samples),
                   'num_leaves': safe_eval(params.lgbm__num_leaves),
+                  'top_rate': safe_eval(params.lgbm__top_rate),
+                  'other_rate': safe_eval(params.lgbm__other_rate),
                   'nthread': safe_eval(params.num_workers),
                   'number_boosting_rounds': safe_eval(params.lgbm__number_boosting_rounds),
                   'early_stopping_rounds': safe_eval(params.lgbm__early_stopping_rounds),
