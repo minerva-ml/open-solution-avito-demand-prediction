@@ -14,11 +14,12 @@ from sklearn.externals import joblib
 from sklearn.feature_extraction import text
 
 from .base import BaseTransformer
-
+print('GOT HERE')
+nltk.download('stopwords')
+nltk.download('wordnet')
+print('GOT HERE')
 lem = WordNetLemmatizer()
 tokenizer = TweetTokenizer()
-nltk.download('wordnet')
-nltk.download('stopwords')
 eng_stopwords = set(stopwords.words("english"))
 with open('steps/resources/apostrophes.json', 'r') as f:
     APPO = json.load(f)

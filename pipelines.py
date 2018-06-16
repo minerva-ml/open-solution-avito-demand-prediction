@@ -148,36 +148,39 @@ def dataframe_features(clean_features, config, train_mode, **kwargs):
 def text_features(clean_features, config, train_mode, **kwargs):
     if train_mode:
         clean, clean_valid = clean_features
+    else:
+        clean = clean_features
 
-        hand_crafted_text = Step(name='hand_crafted_text',
-                                 transformer=fe.TextFeatures(**config.text_features),
-                                 input_steps=[clean],
-                                 adapter={'X': ([(clean.name, 'clean_features')])},
-                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
+    hand_crafted_text = Step(name='hand_crafted_text',
+                             transformer=fe.TextFeatures(**config.text_features),
+                             input_steps=[clean],
+                             adapter={'X': ([(clean.name, 'clean_features')])},
+                             cache_dirpath=config.env.cache_dirpath, **kwargs)
 
+    word_overlap = Step(name='word_overlap',
+                        transformer=fe.WordOverlap(**config.word_overlap),
+                        input_steps=[clean],
+                        adapter={'X': ([(clean.name, 'clean_features')])},
+                        cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    tfidf = Step(name='tfidf',
+                 transformer=fe.MultiColumnTfidfVectorizer(**config.tfidf),
+                 input_steps=[clean],
+                 adapter={'X': ([(clean.name, 'clean_features')])},
+                 cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    if train_mode:
         hand_crafted_text_valid = Step(name='hand_crafted_text_valid',
                                        transformer=hand_crafted_text,
                                        input_steps=[clean_valid],
                                        adapter={'X': ([(clean_valid.name, 'clean_features')])},
                                        cache_dirpath=config.env.cache_dirpath, **kwargs)
 
-        word_overlap = Step(name='word_overlap',
-                            transformer=fe.WordOverlap(**config.word_overlap),
-                            input_steps=[clean],
-                            adapter={'X': ([(clean.name, 'clean_features')])},
-                            cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         word_overlap_valid = Step(name='word_overlap_valid',
                                   transformer=word_overlap,
                                   input_steps=[clean_valid],
                                   adapter={'X': ([(clean_valid.name, 'clean_features')])},
                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
-
-        tfidf = Step(name='tfidf',
-                     transformer=fe.MultiColumnTfidfVectorizer(**config.tfidf),
-                     input_steps=[clean],
-                     adapter={'X': ([(clean.name, 'clean_features')])},
-                     cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         tfidf_valid = Step(name='tfidf_valid',
                            transformer=tfidf,
@@ -186,43 +189,25 @@ def text_features(clean_features, config, train_mode, **kwargs):
                            cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return (hand_crafted_text, word_overlap, tfidf), (hand_crafted_text_valid, word_overlap_valid, tfidf_valid)
-
     else:
-        clean = clean_features
-
-        hand_crafted_text = Step(name='hand_crafted_text',
-                                 transformer=fe.TextFeatures(**config.text_features),
-                                 input_steps=[clean],
-                                 adapter={'X': ([(clean.name, 'clean_features')])},
-                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
-
-        word_overlap = Step(name='word_overlap',
-                            transformer=fe.WordOverlap(**config.word_overlap),
-                            input_steps=[clean],
-                            adapter={'X': ([(clean.name, 'clean_features')])},
-                            cache_dirpath=config.env.cache_dirpath, **kwargs)
-
-        tfidf = Step(name='tfidf',
-                     transformer=fe.MultiColumnTfidfVectorizer(**config.tfidf),
-                     input_steps=[clean],
-                     adapter={'X': ([(clean.name, 'clean_features')])},
-                     cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return hand_crafted_text, word_overlap, tfidf
 
 
 def image_features(clean_features, config, train_mode, **kwargs):
     if train_mode:
         clean, clean_valid = clean_features
+    else:
+        clean = clean_features
 
-        image_stats = Step(name='image_stats',
-                           transformer=fe.ImageStatistics(**config.image_stats),
-                           input_data=['specs'],
-                           input_steps=[clean],
-                           adapter={'X': ([(clean.name, 'clean_features')]),
-                                    'is_train': ([('specs', 'is_train')])},
-                           cache_dirpath=config.env.cache_dirpath, **kwargs)
+    image_stats = Step(name='image_stats',
+                       transformer=fe.ImageStatistics(**config.image_stats),
+                       input_data=['specs'],
+                       input_steps=[clean],
+                       adapter={'X': ([(clean.name, 'clean_features')]),
+                                'is_train': ([('specs', 'is_train')])},
+                       cache_dirpath=config.env.cache_dirpath, **kwargs)
 
+    if train_mode:
         image_stats_valid = Step(name='image_stats_valid',
                                  transformer=image_stats,
                                  input_data=['specs'],
@@ -230,20 +215,8 @@ def image_features(clean_features, config, train_mode, **kwargs):
                                  adapter={'X': ([(clean_valid.name, 'clean_features')]),
                                           'is_train': ([('specs', 'is_train')])},
                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return image_stats, image_stats_valid
-
     else:
-        clean = clean_features
-
-        image_stats = Step(name='image_stats',
-                           transformer=fe.ImageStatistics(**config.image_stats),
-                           input_data=['specs'],
-                           input_steps=[clean],
-                           adapter={'X': ([(clean.name, 'clean_features')]),
-                                    'is_train': ([('specs', 'is_train')])},
-                           cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return image_stats
 
 
@@ -288,14 +261,13 @@ def classifier_lgbm(features, config, train_mode, **kwargs):
 
 
 def _clean_features(config, train_mode):
+    input_missing = Step(name='input_missing',
+                         transformer=InputMissing(**config.input_missing),
+                         input_data=['input'],
+                         adapter={'X': ([('input', 'X')]), },
+                         cache_dirpath=config.env.cache_dirpath)
+
     if train_mode:
-
-        input_missing = Step(name='input_missing',
-                             transformer=InputMissing(**config.input_missing),
-                             input_data=['input'],
-                             adapter={'X': ([('input', 'X')]), },
-                             cache_dirpath=config.env.cache_dirpath)
-
         input_missing_valid = Step(name='input_missing_valid',
                                    transformer=input_missing,
                                    input_data=['input'],
@@ -304,23 +276,16 @@ def _clean_features(config, train_mode):
 
         return input_missing, input_missing_valid
     else:
-        input_missing = Step(name='input_missing',
-                             transformer=InputMissing(**config.input_missing),
-                             input_data=['input'],
-                             adapter={'X': ([('input', 'X')]), },
-                             cache_dirpath=config.env.cache_dirpath)
-
-    return input_missing
+        return input_missing
 
 
 def _is_missing_features(config, train_mode, **kwargs):
+    is_missing = Step(name='is_missing',
+                      transformer=fe.IsMissing(**config.is_missing),
+                      input_data=['input'],
+                      adapter={'X': ([('input', 'X')])},
+                      cache_dirpath=config.env.cache_dirpath, **kwargs)
     if train_mode:
-        is_missing = Step(name='is_missing',
-                          transformer=fe.IsMissing(**config.is_missing),
-                          input_data=['input'],
-                          adapter={'X': ([('input', 'X')])},
-                          cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         is_missing_valid = Step(name='is_missing_valid',
                                 transformer=is_missing,
                                 input_data=['input'],
@@ -328,30 +293,27 @@ def _is_missing_features(config, train_mode, **kwargs):
                                 cache_dirpath=config.env.cache_dirpath, **kwargs)
 
         return is_missing, is_missing_valid
-
     else:
-        is_missing = Step(name='is_missing',
-                          transformer=fe.IsMissing(**config.is_missing),
-                          input_data=['input'],
-                          adapter={'X': ([('input', 'X')])},
-                          cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return is_missing
 
 
 def _encode_categorical(clean_features, config, train_mode, **kwargs):
     if train_mode:
         clean, clean_valid = clean_features
-        categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.OrdinalEncoder(**config.categorical_encoder),
-                                   input_steps=[clean],
-                                   adapter={
-                                       'categorical_features': (
-                                           [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                     cols=cfg.CATEGORICAL_COLUMNS))
-                                   },
-                                   cache_dirpath=config.env.cache_dirpath, **kwargs)
+    else:
+        clean = clean_features
 
+    categorical_encoder = Step(name='categorical_encoder',
+                               transformer=fe.OrdinalEncoder(**config.categorical_encoder),
+                               input_steps=[clean],
+                               adapter={
+                                   'categorical_features': (
+                                       [(clean.name, 'clean_features')], partial(pandas_subset_columns,
+                                                                                 cols=cfg.CATEGORICAL_COLUMNS))
+                               },
+                               cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    if train_mode:
         categorical_encoder_valid = Step(name='categorical_encoder_valid',
                                          transformer=categorical_encoder,
                                          input_steps=[clean_valid],
@@ -360,38 +322,27 @@ def _encode_categorical(clean_features, config, train_mode, **kwargs):
                                                                                              cols=cfg.CATEGORICAL_COLUMNS))
                                          },
                                          cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return categorical_encoder, categorical_encoder_valid
-
     else:
-        clean = clean_features
-        categorical_encoder = Step(name='categorical_encoder',
-                                   transformer=fe.OrdinalEncoder(**config.categorical_encoder),
-                                   input_steps=[clean],
-                                   adapter={
-                                       'categorical_features': (
-                                           [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                     cols=cfg.CATEGORICAL_COLUMNS))
-                                   },
-                                   cache_dirpath=config.env.cache_dirpath,
-                                   **kwargs)
-
         return categorical_encoder
 
 
 def _timestamp_features(clean_features, config, train_mode, **kwargs):
     if train_mode:
         clean, clean_valid = clean_features
-        timestamp_features = Step(name='timestamp_features',
-                                  transformer=fe.DateFeatures(**config.date_features),
-                                  input_steps=[clean],
-                                  adapter={
-                                      'timestamp_features': (
-                                          [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                    cols=cfg.TIMESTAMP_COLUMNS))
-                                  },
-                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
+    else:
+        clean = clean_features
 
+    timestamp_features = Step(name='timestamp_features',
+                              transformer=fe.DateFeatures(**config.date_features),
+                              input_steps=[clean],
+                              adapter={
+                                  'timestamp_features': (
+                                      [(clean.name, 'clean_features')], partial(pandas_subset_columns,
+                                                                                cols=cfg.TIMESTAMP_COLUMNS))
+                              },
+                              cache_dirpath=config.env.cache_dirpath, **kwargs)
+    if train_mode:
         timestamp_features_valid = Step(name='timestamp_features_valid',
                                         transformer=timestamp_features,
                                         input_steps=[clean_valid],
@@ -400,38 +351,28 @@ def _timestamp_features(clean_features, config, train_mode, **kwargs):
                                                                                             cols=cfg.TIMESTAMP_COLUMNS))
                                         },
                                         cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return timestamp_features, timestamp_features_valid
-
     else:
-        clean = clean_features
-        timestamp_features = Step(name='timestamp_features',
-                                  transformer=fe.DateFeatures(**config.date_features),
-                                  input_steps=[clean],
-                                  adapter={
-                                      'timestamp_features': (
-                                          [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                    cols=cfg.TIMESTAMP_COLUMNS))
-                                  },
-                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return timestamp_features
 
 
 def _numerical_features(clean_features, config, train_mode, **kwargs):
     if train_mode:
         clean, clean_valid = clean_features
-        numerical_features = Step(name='numerical_features',
-                                  transformer=fe.ProcessNumerical(),
-                                  input_steps=[clean],
-                                  adapter={
-                                      'numerical_features': (
-                                          [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                    cols=cfg.NUMERICAL_COLUMNS))
-                                  },
-                                  cache_dirpath=config.env.cache_dirpath,
-                                  **kwargs)
+    else:
+        clean = clean_features
 
+    numerical_features = Step(name='numerical_features',
+                              transformer=fe.ProcessNumerical(),
+                              input_steps=[clean],
+                              adapter={
+                                  'numerical_features': (
+                                      [(clean.name, 'clean_features')], partial(pandas_subset_columns,
+                                                                                cols=cfg.NUMERICAL_COLUMNS))
+                              },
+                              cache_dirpath=config.env.cache_dirpath,
+                              **kwargs)
+    if train_mode:
         numerical_features_valid = Step(name='numerical_features_valid',
                                         transformer=numerical_features,
                                         input_steps=[clean_valid],
@@ -440,21 +381,8 @@ def _numerical_features(clean_features, config, train_mode, **kwargs):
                                                                                             cols=cfg.NUMERICAL_COLUMNS))
                                         },
                                         cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return numerical_features, numerical_features_valid
-
     else:
-        clean = clean_features
-        numerical_features = Step(name='numerical_features',
-                                  transformer=fe.ProcessNumerical(),
-                                  input_steps=[clean],
-                                  adapter={
-                                      'numerical_features': (
-                                          [(clean.name, 'clean_features')], partial(pandas_subset_columns,
-                                                                                    cols=cfg.NUMERICAL_COLUMNS))
-                                  },
-                                  cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return numerical_features
 
 
@@ -505,16 +433,21 @@ def _groupby_aggregations(clean_features, additional_features, config, train_mod
     if train_mode:
         clean, clean_valid = clean_features
         added_feature, added_feature_valid = additional_features
-        groupby_aggregations = Step(name='groupby_aggregations',
-                                    transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[clean, added_feature],
-                                    adapter={
-                                        'X': ([(clean.name, 'clean_features'),
-                                               (added_feature.name, 'categorical_features')],
-                                              pandas_concat_inputs)
-                                    },
-                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
+    else:
+        clean = clean_features
+        added_feature = additional_features
 
+    groupby_aggregations = Step(name='groupby_aggregations',
+                                transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
+                                input_steps=[clean, added_feature],
+                                adapter={
+                                    'X': ([(clean.name, 'clean_features'),
+                                           (added_feature.name, 'categorical_features')],
+                                          pandas_concat_inputs)
+                                },
+                                cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    if train_mode:
         groupby_aggregations_valid = Step(name='groupby_aggregations_valid',
                                           transformer=groupby_aggregations,
                                           input_steps=[clean_valid, added_feature_valid],
@@ -524,22 +457,8 @@ def _groupby_aggregations(clean_features, additional_features, config, train_mod
                                                          )
                                                    },
                                           cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return groupby_aggregations, groupby_aggregations_valid
-
     else:
-        clean = clean_features
-        added_feature = additional_features
-        groupby_aggregations = Step(name='groupby_aggregations',
-                                    transformer=fe.GroupbyAggregations(**config.groupby_aggregation),
-                                    input_steps=[clean, added_feature],
-                                    adapter={
-                                        'X': ([(clean.name, 'clean_features'),
-                                               (added_feature.name, 'categorical_features')],
-                                              pandas_concat_inputs)
-                                    },
-                                    cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return groupby_aggregations
 
 
@@ -547,23 +466,22 @@ def _join_features(numerical_features, numerical_features_valid,
                    categorical_features, categorical_features_valid,
                    sparse_features, sparse_features_valid,
                    config, train_mode, **kwargs):
+    feature_joiner = Step(name='feature_joiner',
+                          transformer=fe.FeatureJoiner(),
+                          input_steps=numerical_features + categorical_features + sparse_features,
+                          adapter={
+                              'numerical_feature_list': (
+                                  [(feature.name, 'numerical_features') for feature in numerical_features],
+                                  identity_inputs),
+                              'categorical_feature_list': (
+                                  [(feature.name, 'categorical_features') for feature in categorical_features],
+                                  identity_inputs),
+                              'sparse_feature_list': (
+                                  [(feature.name, 'sparse_features') for feature in sparse_features],
+                                  identity_inputs),
+                          },
+                          cache_dirpath=config.env.cache_dirpath, **kwargs)
     if train_mode:
-        feature_joiner = Step(name='feature_joiner',
-                              transformer=fe.FeatureJoiner(),
-                              input_steps=numerical_features + categorical_features + sparse_features,
-                              adapter={
-                                  'numerical_feature_list': (
-                                      [(feature.name, 'numerical_features') for feature in numerical_features],
-                                      identity_inputs),
-                                  'categorical_feature_list': (
-                                      [(feature.name, 'categorical_features') for feature in categorical_features],
-                                      identity_inputs),
-                                  'sparse_feature_list': (
-                                      [(feature.name, 'sparse_features') for feature in sparse_features],
-                                      identity_inputs),
-                              },
-                              cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         feature_joiner_valid = Step(name='feature_joiner_valid',
                                     transformer=feature_joiner,
                                     input_steps=numerical_features_valid + categorical_features_valid + sparse_features_valid,
@@ -579,26 +497,8 @@ def _join_features(numerical_features, numerical_features_valid,
                                             identity_inputs),
                                     },
                                     cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return feature_joiner, feature_joiner_valid
-
     else:
-        feature_joiner = Step(name='feature_joiner',
-                              transformer=fe.FeatureJoiner(),
-                              input_steps=numerical_features + categorical_features + sparse_features,
-                              adapter={
-                                  'numerical_feature_list': (
-                                      [(feature.name, 'numerical_features') for feature in numerical_features],
-                                      identity_inputs),
-                                  'categorical_feature_list': (
-                                      [(feature.name, 'categorical_features') for feature in categorical_features],
-                                      identity_inputs),
-                                  'sparse_feature_list': (
-                                      [(feature.name, 'sparse_features') for feature in sparse_features],
-                                      identity_inputs),
-                              },
-                              cache_dirpath=config.env.cache_dirpath, **kwargs)
-
         return feature_joiner
 
 
