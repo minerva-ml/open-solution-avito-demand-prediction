@@ -3,7 +3,9 @@ import logging
 import os
 import random
 import sys
+import multiprocessing as mp
 
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import yaml
@@ -118,3 +120,31 @@ def pandas_concat_inputs(inputs, axis=1):
 
 def pandas_subset_columns(inputs, cols):
     return inputs[0][cols]
+
+
+def chunk_groups(groupby_object, chunk_size):
+    n_groups = groupby_object.ngroups
+    group_chunk = []
+    for i, (_, df) in enumerate(groupby_object):
+        group_chunk.append(df)
+        if (i + 1) % chunk_size == 0 or i + 1 == n_groups:
+            group_chunk_ = group_chunk.copy()
+            group_chunk = []
+            yield group_chunk_
+
+
+def parallel_apply(groups, func, num_workers, chunk_size=1000):
+    n_chunks = np.ceil(1.0 * groups.ngroups / chunk_size)
+    features = []
+    for groups_chunk in tqdm(chunk_groups(groups, chunk_size), total=n_chunks):
+        with mp.pool.Pool(num_workers) as executor:
+            features_chunk = executor.map(func, groups_chunk)
+        features.extend(features_chunk)
+
+    features = pd.DataFrame(features)
+    return features
+
+def periods_to_date_format(df, columns):
+    for col in columns:
+        df[col] = pd.to_datetime(df[col], format='%Y-%m-%d')
+    return df

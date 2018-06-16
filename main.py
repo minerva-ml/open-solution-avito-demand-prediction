@@ -9,7 +9,7 @@ import pipeline_config as cfg
 from pipelines import PIPELINES
 from preprocessing import translate
 from utils import init_logger, read_params, create_submission, set_seed, save_evaluation_predictions, \
-    stratified_train_valid_split, data_hash_channel_send, root_mean_squared_error
+    stratified_train_valid_split, data_hash_channel_send, root_mean_squared_error, periods_to_date_format
 
 set_seed(1234)
 logger = init_logger()
@@ -58,10 +58,14 @@ def _train(pipeline_name, dev_mode):
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
+        periods_train = pd.read_csv(params.train_periods_filepath, nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
+        periods_train = pd.read_csv(params.train_periods_filepath)
+
+    periods_train = periods_to_date_format(periods_train, cfg.PERIODS_TIMESTAMP_COLUMNS)
 
     meta_train_split, meta_valid_split = stratified_train_valid_split(meta_train,
                                                                       target_column=cfg.TARGET_COLUMNS,
@@ -83,6 +87,7 @@ def _train(pipeline_name, dev_mode):
                       'y': meta_train_split[cfg.TARGET_COLUMNS],
                       'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y_valid': meta_valid_split[cfg.TARGET_COLUMNS],
+                      'periods_table': periods_train
                       },
             'specs': {'is_train': True}
             }
@@ -112,10 +117,14 @@ def _evaluate(pipeline_name, dev_mode):
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'],
                                  nrows=cfg.DEV_SAMPLE_SIZE)
+        periods_train = pd.read_csv(params.train_periods_filepath, nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_train = pd.read_csv(train_filepath,
                                  usecols=cfg.FEATURE_COLUMNS + cfg.TARGET_COLUMNS + cfg.ITEM_ID_COLUMN,
                                  dtype=cfg.COLUMN_TYPES['train'])
+        periods_train = pd.read_csv(params.train_periods_filepath)
+
+    periods_train = periods_to_date_format(periods_train, cfg.PERIODS_TIMESTAMP_COLUMNS)
 
     _, meta_valid_split = stratified_train_valid_split(meta_train,
                                                        target_column=cfg.TARGET_COLUMNS,
@@ -129,6 +138,7 @@ def _evaluate(pipeline_name, dev_mode):
 
     data = {'input': {'X': meta_valid_split[cfg.FEATURE_COLUMNS],
                       'y': None,
+                      'periods_table': periods_train
                       },
             'specs': {'is_train': True}
             }
@@ -167,15 +177,20 @@ def _predict(pipeline_name, dev_mode):
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'],
                                 nrows=cfg.DEV_SAMPLE_SIZE)
+        periods_test = pd.read_csv(params.train_periods_filepath, nrows=cfg.DEV_SAMPLE_SIZE)
     else:
         meta_test = pd.read_csv(test_filepath,
                                 usecols=cfg.FEATURE_COLUMNS + cfg.ITEM_ID_COLUMN,
                                 dtype=cfg.COLUMN_TYPES['inference'])
+        periods_test = pd.read_csv(params.train_periods_filepath)
+
+    periods_test = periods_to_date_format(periods_test, cfg.PERIODS_TIMESTAMP_COLUMNS)
 
     data_hash_channel_send(ctx, 'Test Data Hash', meta_test)
 
     data = {'input': {'X': meta_test[cfg.FEATURE_COLUMNS],
                       'y': None,
+                      'periods_table': periods_test
                       },
             'specs': {'is_train': False}
             }
