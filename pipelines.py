@@ -228,25 +228,34 @@ def image_features(clean_features, config, train_mode, **kwargs):
 
 
 def period_features(config, train_mode, **kwargs):
-    periods = Step(name='periods',
-                   transformer=fe.PeriodFeatures(**config.period_features),
-                   input_data=['input'],
-                   adapter={'df': ([('input', 'X')]),
-                            'periods_df': ([('input', 'periods_table')])
-                            },
-                   cache_dirpath=config.env.cache_dirpath, **kwargs)
+    periods_table = Step(name='periods_table',
+                         transformer=fe.PeriodTable(**config.periods_table),
+                         input_data=['input'],
+                         adapter={'periods_df': ([('input', 'periods_table')])
+                                  },
+                         cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    periods_features = Step(name='periods_features',
+                            transformer=fe.PeriodFeatures(),
+                            input_data=['input'],
+                            input_steps=[periods_table],
+                            adapter={'df': ([('input', 'X')]),
+                                     'periods_table': ([(periods_table.name, 'periods_table')])
+                                     },
+                            cache_dirpath=config.env.cache_dirpath, **kwargs)
 
     if train_mode:
-        periods_valid = Step(name='periods_valid',
-                             transformer=periods,
-                             input_data=['input'],
-                             adapter={'df': ([('input', 'X_valid')]),
-                                      'periods_df': ([('input', 'periods_table')])
-                                      },
-                             cache_dirpath=config.env.cache_dirpath, **kwargs)
-        return periods, periods_valid
+        periods_features_valid = Step(name='periods_features_valid',
+                                      transformer=periods_features,
+                                      input_data=['input'],
+                                      input_steps=[periods_table],
+                                      adapter={'df': ([('input', 'X_valid')]),
+                                               'periods_table': ([(periods_table.name, 'periods_table')])
+                                               },
+                                      cache_dirpath=config.env.cache_dirpath, **kwargs)
+        return periods_features, periods_features_valid
     else:
-        return periods
+        return periods_features
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):

@@ -151,7 +151,7 @@ SOLUTION_CONFIG = AttrDict({
                     'log_features': True,
                     'n_jobs': params.num_workers},
 
-    'period_features': {'n_jobs': params.num_workers},
+    'periods_table': {'n_jobs': params.num_workers},
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),
