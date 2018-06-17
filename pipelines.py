@@ -50,18 +50,22 @@ def feature_extraction(config, train_mode, **kwargs):
 
         image_stats, image_stats_valid = image_features((cleaned, cleaned_valid), config, train_mode, **kwargs)
 
+        periods, periods_valid = period_features(config, train_mode, **kwargs)
+
         feature_combiner, feature_combiner_valid = _join_features(numerical_features=[numerical,
                                                                                       target_encoder,
                                                                                       group_by,
                                                                                       hand_crafted_text,
                                                                                       word_overlap,
-                                                                                      image_stats],
+                                                                                      image_stats,
+                                                                                      periods],
                                                                   numerical_features_valid=[numerical_valid,
                                                                                             target_encoder_valid,
                                                                                             group_by_valid,
                                                                                             hand_crafted_text_valid,
                                                                                             word_overlap_valid,
-                                                                                            image_stats_valid],
+                                                                                            image_stats_valid,
+                                                                                            periods_valid],
                                                                   categorical_features=[timestamp,
                                                                                         is_missing,
                                                                                         categorical,
@@ -85,8 +89,11 @@ def feature_extraction(config, train_mode, **kwargs):
 
         image_stats = image_features(cleaned, config, train_mode, **kwargs)
 
+        periods = period_features(config, train_mode, **kwargs)
+
         feature_combiner = _join_features(
-            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap, image_stats],
+            numerical_features=[prices, target_encoder, group_by, hand_crafted_text, word_overlap, image_stats,
+                                periods],
             numerical_features_valid=[],
             categorical_features=[timestamp, is_missing, categorical, target_encoder],
             categorical_features_valid=[],
@@ -218,6 +225,28 @@ def image_features(clean_features, config, train_mode, **kwargs):
         return image_stats, image_stats_valid
     else:
         return image_stats
+
+
+def period_features(config, train_mode, **kwargs):
+    periods = Step(name='periods',
+                   transformer=fe.PeriodFeatures(**config.period_features),
+                   input_data=['input'],
+                   adapter={'df': ([('input', 'X')]),
+                            'periods_df': ([('input', 'periods_table')])
+                            },
+                   cache_dirpath=config.env.cache_dirpath, **kwargs)
+
+    if train_mode:
+        periods_valid = Step(name='periods_valid',
+                             transformer=periods,
+                             input_data=['input'],
+                             adapter={'df': ([('input', 'X_valid')]),
+                                      'periods_df': ([('input', 'periods_table')])
+                                      },
+                             cache_dirpath=config.env.cache_dirpath, **kwargs)
+        return periods, periods_valid
+    else:
+        return periods
 
 
 def classifier_lgbm(features, config, train_mode, **kwargs):

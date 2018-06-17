@@ -19,13 +19,14 @@ exclude:
 parameters:
 # Data
   train_filepath: YOUR/PATH
-  test_filepath:  YOUR/PATH
-  train_image_dir:  YOUR/PATH
-  test_image_dir:  YOUR/PATH
-  experiment_dir:  YOUR/PATH
-
-  train_en_filepath: YOUR/PATH/TO/train_en.csv
-  test_en_filepath: YOUR/PATH/TO/test_en.csv
+  test_filepath: YOUR/PATH
+  train_image_dir: YOUR/PATH
+  test_image_dir: YOUR/PATH
+  train_periods_filepath: YOUR/PATH
+  test_periods_filepath: YOUR/PATH
+  experiment_dir: YOUR/PATH
+  train_en_filepath: YOUR/PATH
+  test_en_filepath: YOUR/PATH
   use_english: True
 
 # Validation
@@ -47,17 +48,24 @@ parameters:
   lgbm__boosting_type: 'gbdt'
   lgbm__objective: regression
   lgbm__metric: RMSE
-  lgbm__number_boosting_rounds: 10000
-  lgbm__early_stopping_rounds: 50
-  lgbm__learning_rate: 0.2
-  lgbm__num_leaves: 90
-  lgbm__max_depth: 27
-  lgbm__min_child_samples: 20
-  lgbm__max_bin: 1300
-  lgbm__subsample: 0.8
+  lgbm__number_boosting_rounds: 15000
+  lgbm__early_stopping_rounds: 100
+  lgbm__learning_rate: 0.02
+
+  lgbm__top_rate: 0.4
+  lgbm__other_rate: 0.2
+  lgbm__subsample: 0.7
   lgbm__subsample_freq: 1
-  lgbm__colsample_bytree: 0.7
+  lgbm__colsample_bytree: 0.3
+
+  lgbm__max_depth: 27
+  lgbm__num_leaves: 90
+  lgbm__max_bin: 1300
+
+  lgbm__min_child_samples: 20
   lgbm__min_child_weight: 12
-  lgbm__reg_lambda: 6.0
-  lgbm__reg_alpha: 3.4e-05
+
+  lgbm__reg_lambda: 10
+  lgbm__reg_alpha: 0
+
   lgbm__scale_pos_weight: 1

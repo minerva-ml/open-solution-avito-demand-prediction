@@ -2,6 +2,7 @@ import os
 import re
 import string
 from multiprocessing import Pool
+from functools import partial
 
 import category_encoders as ce
 import cv2
@@ -16,6 +17,7 @@ from scipy.sparse import hstack, csr_matrix
 
 from steps.base import BaseTransformer
 from steps.utils import get_logger
+from utils import parallel_apply
 
 logger = get_logger()
 
@@ -684,3 +686,54 @@ def get_cv2_image_stats(filepath):
     stats += (bw < 10).mean()
     stats += (bw > 245).mean()
     return stats
+
+
+class PeriodFeatures(BaseTransformer):
+    cols = ['duration', 'activation_to_start_delta', 'time_from_last_offer_ended']
+    aggs = ['mean', 'median', 'max', 'min', 'std']
+
+    def __init__(self, n_jobs):
+        self.n_jobs = n_jobs
+
+    @property
+    def feature_colnames(self):
+        feature_colnames = ['{}_{}'.format(col, agg)
+                            for agg in PeriodFeatures.aggs for col in PeriodFeatures.cols]
+        feature_colnames.extend(['time_from_last_offer', 'offer_count'])
+        return feature_colnames
+
+    def transform(self, df, periods_df, **kwargs):
+        period_features = self._extract_period_features(periods_df)
+
+        main_features = df[['item_id', 'activation_date']]
+        main_features['activation_date'] = pd.to_datetime(main_features['activation_date'], format='%Y-%m-%d')
+
+        features = pd.merge(main_features, period_features, on='item_id')
+        features.fillna(0, inplace=True)
+        features['time_from_last_offer'] = (features['activation_date'] - features['last_offer_end_date']).dt.days
+        return {'numerical_features': features[self.feature_colnames]}
+
+    def _extract_period_features(self, periods_df):
+        groups = periods_df.groupby('item_id')
+
+        period_features = parallel_apply(groups, extract_period_features_for_item, self.n_jobs, 10000)
+        return period_features
+
+
+def extract_period_features_for_item(df):
+    df.sort_values('activation_date', ascending=False, inplace=True)
+    df['duration'] = (df['date_to'] - df['date_from']).dt.days
+    df['activation_to_start_delta'] = (df['date_from'] - df['activation_date']).dt.days
+    df['date_to_last'] = df.shift(periods=-1)['date_to']
+    df['time_from_last_offer_ended'] = (df['date_from'] - df['date_to_last']).dt.days
+
+    df_stat = df[PeriodFeatures.cols].apply(PeriodFeatures.aggs).reset_index(drop=True)
+    colnames = ['{}_{}'.format(col, agg)
+                for agg in PeriodFeatures.aggs for col in PeriodFeatures.cols]
+    df_feat = pd.DataFrame(np.ndarray.reshape(df_stat.values, (1, 15)), columns=colnames)
+
+    df_feat['offer_count'] = df.shape[0]
+    df_feat['last_offer_end_date'] = pd.to_datetime(df['date_to'].max(), format='%Y-%m-%d')
+    df_feat['item_id'] = df.iloc[0]['item_id']
+    df_feat.fillna(0, inplace=True)
+    return df_feat.iloc[0]

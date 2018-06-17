@@ -32,6 +32,7 @@ IMAGE_COLUMNS = ['image']
 TARGET_COLUMNS = ['deal_probability']
 CV_COLUMN = ['user_id']
 TIMESTAMP_COLUMNS = ['activation_date']
+PERIODS_TIMESTAMP_COLUMNS = ['activation_date', 'date_from', 'date_to']
 ITEM_ID_COLUMN = ['item_id']
 USER_ID_COLUMN = ['user_id']
 FEATURES_TO_TRANSLATE = ['category_name', 'city', 'description', 'param_1', 'param_2', 'param_3',
@@ -149,6 +150,8 @@ SOLUTION_CONFIG = AttrDict({
                     'img_dir_test': params.test_image_dir,
                     'log_features': True,
                     'n_jobs': params.num_workers},
+
+    'period_features': {'n_jobs': params.num_workers},
 
     'light_gbm': {'boosting_type': safe_eval(params.lgbm__boosting_type),
                   'objective': safe_eval(params.lgbm__objective),
