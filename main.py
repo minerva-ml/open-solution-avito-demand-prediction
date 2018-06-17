@@ -83,9 +83,9 @@ def _train(pipeline_name, dev_mode):
     meta_train_split = meta_train_split.sample(frac=1)
     meta_valid_split = meta_valid_split.sample(frac=1)
 
-    data = {'input': {'X': meta_train_split[cfg.FEATURE_COLUMNS],
+    data = {'input': {'X': meta_train_split[cfg.FEATURE_COLUMNS+cfg.ITEM_ID_COLUMN],
                       'y': meta_train_split[cfg.TARGET_COLUMNS],
-                      'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS],
+                      'X_valid': meta_valid_split[cfg.FEATURE_COLUMNS+cfg.ITEM_ID_COLUMN],
                       'y_valid': meta_valid_split[cfg.TARGET_COLUMNS],
                       'periods_table': periods_train
                       },
@@ -136,7 +136,7 @@ def _evaluate(pipeline_name, dev_mode):
 
     logger.info('Target distribution in valid: {}'.format(meta_valid_split[cfg.TARGET_COLUMNS].mean()))
 
-    data = {'input': {'X': meta_valid_split[cfg.FEATURE_COLUMNS],
+    data = {'input': {'X': meta_valid_split[cfg.FEATURE_COLUMNS+cfg.ITEM_ID_COLUMN],
                       'y': None,
                       'periods_table': periods_train
                       },
@@ -188,7 +188,7 @@ def _predict(pipeline_name, dev_mode):
 
     data_hash_channel_send(ctx, 'Test Data Hash', meta_test)
 
-    data = {'input': {'X': meta_test[cfg.FEATURE_COLUMNS],
+    data = {'input': {'X': meta_test[cfg.FEATURE_COLUMNS+cfg.ITEM_ID_COLUMN],
                       'y': None,
                       'periods_table': periods_test
                       },

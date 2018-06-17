@@ -239,7 +239,7 @@ def period_features(config, train_mode, **kwargs):
     if train_mode:
         periods_valid = Step(name='periods_valid',
                              transformer=periods,
-                             input_data=['input', 'periods_input'],
+                             input_data=['input'],
                              adapter={'df': ([('input', 'X_valid')]),
                                       'periods_df': ([('input', 'periods_table')])
                                       },

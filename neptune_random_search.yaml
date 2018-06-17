@@ -19,13 +19,14 @@ exclude:
 parameters:
 # Data
   train_filepath: YOUR/PATH
-  test_filepath:  YOUR/PATH
-  train_image_dir:  YOUR/PATH
-  test_image_dir:  YOUR/PATH
-  experiment_dir:  YOUR/PATH
-
-  train_en_filepath: YOUR/PATH/TO/train_en.csv
-  test_en_filepath: YOUR/PATH/TO/test_en.csv
+  test_filepath: YOUR/PATH
+  train_image_dir: YOUR/PATH
+  test_image_dir: YOUR/PATH
+  train_periods_filepath: YOUR/PATH
+  test_periods_filepath: YOUR/PATH
+  experiment_dir: YOUR/PATH
+  train_en_filepath: YOUR/PATH
+  test_en_filepath: YOUR/PATH
   use_english: True
 
 # Validation
