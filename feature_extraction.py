@@ -708,7 +708,7 @@ class PeriodTable(BaseTransformer):
     def _extract_period_features(self, periods_df):
         groups = periods_df.groupby('item_id')
 
-        period_features = parallel_apply(groups, extract_period_features_for_item, self.n_jobs, 10000)
+        period_features = parallel_apply(groups, extract_period_features_for_item, self.n_jobs, 100000)
         return period_features
 
 
