@@ -33,7 +33,7 @@ collect submit from `experiment_dir` directory that was specified in `neptune.ya
 ## Get involved
 You are welcome to contribute your code and ideas to this open solution. To get started:
 1. Check [competition project](https://github.com/minerva-ml/open-solution-avito-demand-prediction/projects/1) here, on GitHub to see what we are working on right now.
-1. Express your interest in paticular task by writing comment in this task, or by creating new one with your fresh idea.
+1. Express your interest in particular task by writing comment in this task, or by creating new one with your fresh idea.
 1. We will get back to you quickly in order to start working together.
 1. Check [CONTRIBUTING](CONTRIBUTING.md) for some more information.
 
