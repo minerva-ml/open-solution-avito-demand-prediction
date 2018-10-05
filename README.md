@@ -2,6 +2,9 @@
 
 This is an open solution to the [Avito Demand Prediction Challenge](https://www.kaggle.com/c/avito-demand-prediction).
 
+## More competitions :sparkler:
+Check collection of [public projects :gift:](https://app.neptune.ml/-/explore), where you can find multiple Kaggle competitions with code, experiments and outputs.
+
 ## The goal
 Create (entirely) open solution to this competition. We are opening not only the code, but also the process of creating it. Rules are simple:
 * Clean code and extendable solution are - in the long run - much better than current public LB position
