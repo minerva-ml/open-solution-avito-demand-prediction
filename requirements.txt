@@ -10,7 +10,7 @@ scipy==1.0.0
 numpy==1.14.0
 click==6.7
 ipython==6.4.0
-Pillow==6.2.0
+Pillow>=6.2.2
 category_encoders==1.2.6
 gensim==3.4.0
 googletrans==2.2.0
