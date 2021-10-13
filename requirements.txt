@@ -16,7 +16,7 @@ gensim==3.4.0
 googletrans==2.2.0
 joblib==0.11
 lightgbm==2.1.1
-nltk==3.4.5
+nltk==3.6.5
 tensorflow>=1.12.1
 xgboost==0.71
 pyyaml>=4.2b1
